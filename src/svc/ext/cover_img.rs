@@ -7,11 +7,7 @@ use crate::{
     config,
     svc::{
         SingletonService,
-        ext::{
-            ExtServiceCommand,
-            ExtServiceResponse,
-            ExternalServiceCommandRx,
-        },
+        ext::{ExtServiceCommand, ExtServiceResponse, ExternalServiceCommandRx},
     },
 };
 
@@ -82,29 +78,28 @@ impl SingletonService for CoverImageDisplayService {
                             let url = self.url.to_string();
                             let client = self.client.clone();
 
-                            let _ = tokio::task::spawn_blocking(move || {
-                                match client.post(&url).multipart(form).send() {
-                                    Ok(response) if response.status().is_success() => {
-                                        tracing::info!("Cover image uploaded successfully");
-                                        let _ = cmd_and_meta
-                                            .response_channel
-                                            .blocking_send(ExtServiceResponse::Ok);
-                                    }
-                                    Ok(response) => {
-                                        tracing::error!(
-                                            "Cover image upload failed: {}",
-                                            response.status()
-                                        );
-                                        let _ = cmd_and_meta
-                                            .response_channel
-                                            .blocking_send(ExtServiceResponse::Error);
-                                    }
-                                    Err(e) => {
-                                        tracing::error!("Cover image upload request failed: {}", e);
-                                    }
+                            match client.post(&url).multipart(form).send().await {
+                                Ok(response) if response.status().is_success() => {
+                                    tracing::info!("Cover image uploaded successfully");
+                                    let _ = cmd_and_meta
+                                        .response_channel
+                                        .send(ExtServiceResponse::Ok)
+                                        .await;
                                 }
-                            })
-                            .await;
+                                Ok(response) => {
+                                    tracing::error!(
+                                        "Cover image upload failed: {}",
+                                        response.status()
+                                    );
+                                    let _ = cmd_and_meta
+                                        .response_channel
+                                        .send(ExtServiceResponse::Error)
+                                        .await;
+                                }
+                                Err(e) => {
+                                    tracing::error!("Cover image upload request failed: {}", e);
+                                }
+                            }
                         }
                     }
                 }

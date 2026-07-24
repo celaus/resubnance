@@ -27,7 +27,7 @@ use crate::{
         },
     },
 };
-use reqwest::Client as ReqwestClient;
+use reqwest::blocking::Client as ReqwestClient;
 use sunk::{
     collections::playlist::get_playlists,
     search,

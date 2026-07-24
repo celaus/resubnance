@@ -2,7 +2,7 @@
 name = "resubnance"
 version = "0.5.0"
 edition = "2024"
-
+license-file = "LICENSE"
 
 [[bin]]
 name = "resubnance-server"
@@ -18,15 +18,20 @@ rodio = { git = "https://github.com/RustAudio/rodio.git", features = [
     "playback",
     "symphonia-all",
 ], default-features = false }
-sunk = { git = "https://github.com/xeals/sunk", branch = "master", features = [
+sunk = { git = "https://github.com/celaus/sunk", branch = "update-reqwest", features = [
     "rustls",
 ] }
-reqwest = { version = "0.9.24", features = [
-    "rustls-tls",
+reqwest = { version = "0.13.4", features = [
+    "rustls",
+    "blocking",
+    "multipart",
 ], default-features = false }
-poem = { version = "3", features = ["rustls", "websocket"] }
-poem-openapi = { version = "5", features = ["swagger-ui", "static-files"] }
-tokio = { version = "1", features = ["full"] }
+poem = { version = "3", default-features = false, features = ["rustls", "websocket", "static-files"] }
+tokio = { version = "1", default-features = false, features = [
+    "rt-multi-thread",
+    "fs",
+    "sync",
+] }
 tracing = "0.1"
 tracing-subscriber = "0.3"
 uuid = { version = "1", features = ["v4"] }
@@ -44,10 +49,10 @@ arc-swap = "1"
 # cpal = {git = "https://github.com/RustAudio/cpal", rev = "b4ddd2883aab3e2392ab5b8b5dc4ebf6743f0068"}
 schemars = "1"
 
-[patch.crates-io]
+# [patch.crates-io]
 # https://github.com/RustAudio/cpal/issues/1134
-alsa = { git = "https://github.com/roderickvd/alsa-rs", branch = "fix/htstamp-time64-overflow" }
-cpal = { git = "https://github.com/RustAudio/cpal" }
+# alsa = { git = "https://github.com/roderickvd/alsa-rs", branch = "fix/htstamp-time64-overflow" }
+# cpal = { git = "https://github.com/RustAudio/cpal" }
 
 [dev-dependencies]
 tokio-tungstenite = "0.27"
