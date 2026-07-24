@@ -52,6 +52,10 @@ serde_with = { version = "3", features = ["macros"] }
 arc-swap = "1"
 schemars = "1"
 
+[patch.crates-io]
+# https://github.com/RustAudio/cpal/issues/1134 (not yet released to rodio)
+cpal = { git = "https://github.com/RustAudio/cpal" }
+
 [dev-dependencies]
 tokio-tungstenite = "0.27"
 http = "1"
