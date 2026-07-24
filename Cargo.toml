@@ -26,7 +26,11 @@ reqwest = { version = "0.13.4", features = [
     "blocking",
     "multipart",
 ], default-features = false }
-poem = { version = "3", default-features = false, features = ["rustls", "websocket", "static-files"] }
+poem = { version = "3", default-features = false, features = [
+    "rustls",
+    "websocket",
+    "static-files",
+] }
 tokio = { version = "1", default-features = false, features = [
     "rt-multi-thread",
     "fs",
@@ -46,13 +50,7 @@ thiserror = "2"
 url = { version = "2", features = ["serde"] }
 serde_with = { version = "3", features = ["macros"] }
 arc-swap = "1"
-# cpal = {git = "https://github.com/RustAudio/cpal", rev = "b4ddd2883aab3e2392ab5b8b5dc4ebf6743f0068"}
 schemars = "1"
-
-# [patch.crates-io]
-# https://github.com/RustAudio/cpal/issues/1134
-# alsa = { git = "https://github.com/roderickvd/alsa-rs", branch = "fix/htstamp-time64-overflow" }
-# cpal = { git = "https://github.com/RustAudio/cpal" }
 
 [dev-dependencies]
 tokio-tungstenite = "0.27"
