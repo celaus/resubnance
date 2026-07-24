@@ -92,6 +92,11 @@ allow = [
     "MIT",
     "Apache-2.0",
     "Unicode-3.0",
+    "MPL-2.0",
+    "ISC",
+    "BSD-3-Clause",
+    "GPL-3.0",
+    "CDLA-Permissive-2.0"
     #"Apache-2.0 WITH LLVM-exception",
 ]
 # The confidence threshold for detecting a license from license text.
@@ -229,7 +234,9 @@ unknown-git = "warn"
 # if not specified. If it is specified but empty, no registries are allowed.
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
 # List of URLs for allowed Git repositories
-allow-git = []
+allow-git = [
+    "github.com/"
+]
 
 [sources.allow-org]
 # github.com organizations to allow git sources for

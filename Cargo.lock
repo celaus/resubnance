@@ -1236,9 +1236,9 @@ checksum = "dae608c151f68243f2b000364e1f7b186d9c29845f7d2d85bd31b9ad77ad552b"
 
 [[package]]
 name = "md5"
-version = "0.6.1"
+version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7e6bcd6433cff03a4bfc3d9834d504467db1f1cf6d0ea765d37d330249ed629d"
+checksum = "7ebb8d8732c6a6df3d8f032a82911cfc747e00efb95cc46e8d0acd5b5b88570c"
 
 [[package]]
 name = "memchr"
@@ -2501,7 +2501,7 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 [[package]]
 name = "sunk"
 version = "0.2.0"
-source = "git+https://github.com/celaus/sunk?branch=update-reqwest#a3acabc83d00d73356fed1df534aba6b90d69490"
+source = "git+https://github.com/celaus/sunk?branch=update-reqwest#3e8f24d6fa540c16a997e095b1fc2e50340f73e6"
 dependencies = [
  "log",
  "md5",
