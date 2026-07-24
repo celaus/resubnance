@@ -7,7 +7,11 @@ use crate::{
     config,
     svc::{
         SingletonService,
-        ext::{ExtServiceCommand, ExtServiceResponse, ExternalServiceCommandRx},
+        ext::{
+            ExtServiceCommand,
+            ExtServiceResponse,
+            ExternalServiceCommandRx,
+        },
     },
 };
 
