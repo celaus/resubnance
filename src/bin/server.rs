@@ -123,8 +123,8 @@ async fn main() -> Result<(), SvcError> {
         .nest(
             "/api",
             Router::new()
-                .route("/api/cache", delete(cache_delete_all))
-                .route("/api/cache/{id}", delete(cache_delete_by_id))
+                .route("/cache", delete(cache_delete_all))
+                .route("/cache/{id}", delete(cache_delete_by_id))
                 .with_state(webapp_state.clone()),
         )
         .route_service("/favicon.svg", ServeFile::new("static/favicon.svg"))

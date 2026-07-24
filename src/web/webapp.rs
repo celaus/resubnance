@@ -91,10 +91,8 @@ pub async fn cache_delete_by_id(
         .cache_dir()
         .unwrap_or(env::temp_dir());
     let id = params.id;
-    match tokio::task::spawn_blocking(move || find_all_cached_files(cache_dir))
-        .await
-        .unwrap()
-    {
+    tracing::debug!(id_to_delete = id, "deleting cached file with id");
+    match tokio::task::block_in_place(move || find_all_cached_files(cache_dir)) {
         Ok(all_cached_mp3s) => {
             let to_delete = all_cached_mp3s
                 .into_iter()
@@ -125,10 +123,7 @@ pub async fn cache_delete_all(State(state): State<WebAppState>) -> Response {
         .caching_strategy
         .cache_dir()
         .unwrap_or(env::temp_dir());
-    match tokio::task::spawn_blocking(move || find_all_cached_files(cache_dir))
-        .await
-        .unwrap()
-    {
+    match tokio::task::block_in_place(move || find_all_cached_files(cache_dir)) {
         Ok(all_cached_mp3s) => {
             for mp3 in all_cached_mp3s {
                 if let Err(e) = tokio::fs::remove_file(mp3.as_path()).await {
@@ -186,6 +181,7 @@ fn with_leading_zeros(
     }
 }
 
+#[tracing::instrument]
 fn find_all_cached_files(cache_dir: PathBuf) -> io::Result<Vec<PathBuf>> {
     let files = fs::read_dir(&cache_dir)?;
     let all_cached_mp3s: Vec<_> = files
@@ -198,6 +194,7 @@ fn find_all_cached_files(cache_dir: PathBuf) -> io::Result<Vec<PathBuf>> {
                 .unwrap_or(false)
         })
         .collect();
+    tracing::debug!(cached_mp3s=?all_cached_mp3s, "cached mp3s");
     Ok(all_cached_mp3s)
 }
 
