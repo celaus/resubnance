@@ -63,7 +63,6 @@ lazy_static! {
     };
 }
 
-#[axum::debug_handler]
 pub async fn webapp(State(state): State<WebAppState>) -> Response {
     let config = state.config;
     let mut context = Context::new();

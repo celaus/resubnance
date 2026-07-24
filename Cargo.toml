@@ -18,8 +18,7 @@ axum = { version = "*", features = [
     "http1",
     "tracing",
     "tower-log",
-    "matched-path",
-    "macros"
+    "matched-path"
 ], default-features = false }
 rodio = { git = "https://github.com/RustAudio/rodio.git", features = [
     "tracing",
