@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{name}}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet" />
+    <link rel="icon" type="image/svg+xml" href="{{baseUrl}}/favicon.svg" />
+    <link rel="stylesheet" type="text/css" href="/style.css">
+</head>
+
+<body id="appBody">
+    <header>
+        <h1 id="appName">&#9654;{{name}}</h1>
+        <p class="subtitle">resubnance</p>
+        <a href="/cache"><p class="version">{{version}}</p></a>
+    </header>
+
+    <main class="app">
+        <!-- Search Panel -->
+        <section class="panel search-panel">
+            <h2 class="panel-title" style="
+                        color: var(--neon-cyan);
+                        text-shadow: var(--glow-cyan);
+                    ">
+                &#128269; Search Tracks
+            </h2>
+            <div class="search-row">
+                <input type="text" id="searchInput" class="search-input" placeholder="ENTER TRACK NAME..."
+                    autocomplete="off" spellcheck="false" />
+                <button class="btn btn-cyan" id="searchBtn" onclick="doSearch()">
+                    SEARCH
+                </button>
+            </div>
+            <ul class="search-results" id="searchResults">
+                <li class="status-msg">...</li>
+            </ul>
+        </section>
+
+        <!-- Playlists Panel -->
+        <section class="panel">
+            <h2 class="panel-title" style="
+                        color: var(--neon-purple);
+                        text-shadow:
+                            0 0 8px var(--neon-purple),
+                            0 0 20px var(--neon-purple);
+                    ">
+                &#9836; Playlists
+            </h2>
+            <ul class="playlists-list" id="playlistsList">
+                <li class="status-msg">
+                    <span class="spinner"></span>Loading playlists...
+                </li>
+            </ul>
+            <button class="btn btn-pink" onclick="loadPlaylists()" style="
+                        align-self: flex-end;
+                        font-size: 0.6rem;
+                        padding: 0.4rem 0.8rem;
+                    ">
+                &#8635; REFRESH
+            </button>
+        </section>
+
+        <!-- Queue / Info Panel (right) -->
+        <section class="panel" id="queuePanel">
+            <div style="
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                    ">
+                <h2 class="panel-title" style="
+                            color: var(--neon-yellow);
+                            text-shadow: var(--glow-yellow);
+                        ">
+                    &#9889; Queue
+                </h2>
+                <button class="btn btn-pink" onclick="clearQueue()" style="font-size: 0.55rem; padding: 0.3rem 0.6rem">
+                    &#128465; CLEAR
+                </button>
+            </div>
+            <div id="nowPlayingInfo" style="
+                        display: flex;
+                        flex-direction: column;
+                        gap: 0.5rem;
+                        flex: 1;
+                        justify-content: center;
+                    ">
+                <p class="status-msg">No track selected.</p>
+            </div>
+        </section>
+    </main>
+
+    <!-- Fixed Player Bar -->
+    <div class="player-bar">
+        <div class="player-now-playing">
+            <div class="player-track-title" id="playerTitle">
+                &#8212; STANDBY &#8212;
+            </div>
+            <div class="player-track-artist" id="playerArtist"></div>
+        </div>
+        <div class="player-controls">
+            <button class="ctrl-btn ctrl-btn-play" id="playPauseBtn" onclick="togglePlayPause()" title="Play / Pause">
+                &#9654;
+            </button>
+            <button class="ctrl-btn ctrl-btn-next" onclick="skipNext()" title="Next Track">
+                &#9197;
+            </button>
+            <button class="ctrl-btn ctrl-btn-stop" id="stopBtn" onclick="stopPlayback()" title="Stop">
+                &#9632;
+            </button>
+        </div>
+        <div class="player-volume">
+            <input type="range" class="volume-slider" id="volumeSlider" min="0" max="100" value="100"
+                oninput="onVolumeChange(this.value)" onchange="onVolumeCommit(this.value)" />
+            <span class="volume-value" id="volumeValue">100%</span>
+        </div>
+        <div class="player-state-label" id="playerStateLabel">PAUSED</div>
+    </div>
+
+    <div id="toast"></div>
+
+    <script>
+        window.WS_URL = "{{baseUrl}}/ws";
+    </script>
+
+    <script src="/handlers.js">
+    </script>
+</body>
+
+</html>

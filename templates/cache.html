@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{name}} — Stats</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet" />
+    <link rel="icon" type="image/svg+xml" href="{{baseUrl}}/favicon.svg" />
+    <link rel="stylesheet" type="text/css" href="/style.css" />
+    <style>
+        .stats-panel {
+            max-width: 1200px;
+            width: 100%;
+            margin: 1rem auto;
+            padding: 1rem;
+        }
+
+        .stats-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.6rem;
+            letter-spacing: 0.05em;
+        }
+
+        .stats-table th {
+            text-align: left;
+            padding: 0.5rem 0.6rem;
+            color: var(--neon-cyan);
+            text-shadow: var(--glow-cyan);
+            border-bottom: 1px solid var(--neon-cyan);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+        }
+
+        .stats-table td {
+            padding: 0.45rem 0.6rem;
+            border-bottom: 1px solid var(--panel-border);
+            vertical-align: middle;
+        }
+
+        .stats-table tr:hover td {
+            background: rgba(0, 245, 255, 0.04);
+        }
+
+        .stats-table .num {
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .stats-table .total-row td {
+            border-top: 2px solid var(--neon-yellow);
+            border-bottom: none;
+            font-weight: 700;
+            color: var(--neon-yellow);
+            text-shadow: 0 0 6px rgba(255, 230, 0, 0.4);
+            padding-top: 0.7rem;
+        }
+
+        .stats-table .total-row .total-label {
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+        }
+
+        .btn-del {
+            font-family: "Orbitron", monospace;
+            font-weight: 700;
+            font-size: 0.55rem;
+            letter-spacing: 0.1em;
+            padding: 0.3rem 0.6rem;
+            border: 1px solid var(--neon-pink);
+            border-radius: 3px;
+            cursor: pointer;
+            background: transparent;
+            color: var(--neon-pink);
+            text-transform: uppercase;
+            transition: box-shadow 0.15s, background 0.15s;
+        }
+
+        .btn-del:hover {
+            background: rgba(255, 45, 120, 0.12);
+            box-shadow: var(--glow-pink);
+        }
+
+        .btn-del-all {
+            font-family: "Orbitron", monospace;
+            font-weight: 700;
+            font-size: 0.65rem;
+            letter-spacing: 0.15em;
+            padding: 0.5rem 1.2rem;
+            border: 1px solid var(--neon-pink);
+            border-radius: 3px;
+            cursor: pointer;
+            background: transparent;
+            color: var(--neon-pink);
+            text-transform: uppercase;
+            transition: box-shadow 0.15s, background 0.15s;
+        }
+
+        .btn-del-all:hover {
+            background: rgba(255, 45, 120, 0.15);
+            box-shadow: var(--glow-pink);
+        }
+
+        .toolbar {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 1rem;
+        }
+
+        .stats-table .track-artist {
+            color: var(--neon-green);
+        }
+
+        .stats-table .track-title {
+            color: var(--neon-yellow);
+        }
+
+        .extra-info {
+            padding-bottom: 1rem;
+            color: var(--text-dim);
+            font-size: 0.7rem;
+            letter-spacing: 0.2em;
+        }
+
+        .empty-msg {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: var(--text-dim);
+            font-size: 0.7rem;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <a href="/">
+            <h1>&#9654;{{name}}</h1>
+        </a>
+        <p class="subtitle">Cached Tracks</p>
+        <p class="version">{{version}}</p>
+    </header>
+
+    <main class="stats-panel panel">
+        <p class="extra-info">Cache directory: {{cache_dir}}</p>
+        <div class="toolbar">
+            <button class="btn-del-all" onclick="deleteAll()">&#128465; Delete All</button>
+        </div>
+
+        {% if cache | length == 0 %}
+        <p class="empty-msg">No tracks in cache.</p>
+        {% else %}
+        {% set_global total_size = 0 %}
+        <table class="stats-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Artist</th>
+                    <th>Title</th>
+                    <th class="num">Size</th>
+                    <th class="num">Length</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for id, track in cache %}
+                {% set_global total_size = total_size + track.size %}
+                <tr>
+                    <td style="color:var(--text-dim);font-size:0.55rem;font-family:monospace">{{ id }}</td>
+                    <td class="track-artist">{{ track.artist }}</td>
+                    <td class="track-title">{{ track.title }}</td>
+                    <td class="num">{{ track.size | filesizeformat }}</td>
+                    <td class="num">{{ track.duration / 60 | round(method="floor") | int }}:{{ track.duration % 60 | int
+                        | with_leading_zeros }} </td>
+                    <td><button class="btn-del" data-id="{{ id }}" onclick="deleteTrack('{{ id }}')">&#128465;</button>
+                    </td>
+                </tr>
+                {% endfor %}
+                <tr class="total-row">
+                    <td colspan="3" class="total-label">Total</td>
+                    <td class="num">{{ total_size | filesizeformat }}</td>
+                    <td colspan="2"></td>
+                </tr>
+            </tbody>
+        </table>
+        {% endif %}
+    </main>
+
+    <script>
+        const baseUrl = "{{baseUrl}}" + '/api/cache';
+
+        function deleteTrack(id) {
+            if (confirm("Delete track " + id + "?")) {
+                fetch(baseUrl + '/' + id, { method: 'DELETE', cache: "no-cache" })
+                    .then(() => window.location.reload())
+                    .catch((e) => alert(`Failed to delete item with ${id}: ${e}`));
+            }
+        }
+
+        function deleteAll() {
+            if (confirm("Delete ALL tracks?")) {
+                fetch(baseUrl, { method: 'DELETE', cache: "no-cache" })
+                    .then(() => window.location.reload())
+                    .catch((e) => alert(`Failed to delete item with ${id}: ${e}`));
+            }
+        }
+    </script>
+</body>
+
+</html>
