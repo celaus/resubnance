@@ -6,36 +6,35 @@ use crate::{
         QueueManagerServiceCommand,
         QueueManagerServiceCommandTx,
         ServiceEvent,
-        ServiceEventsRx,
         ServiceFactory,
         error::SvcError,
-        tracks::{
-            TracklistSourceProvider,
-            subsonic::SubsonicMusicSourceFactory,
-        },
+        tracks::TracklistSourceProvider,
     },
     types::{
         MetaData,
-        QueueState,
         QueueStateInput,
     },
+    web::WebSocketState,
+};
+use axum::{
+    extract::{
+        State,
+        ws::{
+            Message,
+            WebSocketUpgrade,
+        },
+    },
+    response::IntoResponse,
 };
 use futures::{
     SinkExt,
     StreamExt,
 };
-use poem::{
-    IntoResponse,
-    handler,
-    web::{
-        Data,
-        websocket::{
-            Message,
-            WebSocket,
-        },
-    },
+
+use std::{
+    fmt,
+    sync::Arc,
 };
-use std::sync::Arc;
 use tokio::sync::mpsc;
 mod types;
 
@@ -46,10 +45,10 @@ pub use types::{
     ws_schema_responses,
 };
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct WebSocketMessageHandler<S>
 where
-    S: ServiceFactory<Service: TracklistSourceProvider>,
+    S: ServiceFactory<Service: TracklistSourceProvider> + fmt::Debug,
 {
     queue: QueueManagerServiceCommandTx,
     sink: AudioServiceCommandTx,
@@ -58,7 +57,7 @@ where
 
 impl<S> WebSocketMessageHandler<S>
 where
-    S: ServiceFactory<Service: TracklistSourceProvider>,
+    S: ServiceFactory<Service: TracklistSourceProvider> + fmt::Debug,
 {
     pub fn new(
         sources: Arc<S>,
@@ -106,7 +105,7 @@ where
     }
 
     async fn handle(self, msg: WsRequest, tx: mpsc::Sender<WsResponseInternal>) {
-        let src_svc = self.sources.get_instance();
+        let src_svc = self.sources.get_instance().await;
         let response = match msg.rq {
             WsControlRq::Player(control) => {
                 tracing::info!(control=?control);
@@ -124,6 +123,7 @@ where
                     let lookup_data: Result<Vec<MetaData>, _> = self
                         .sources
                         .get_instance()
+                        .await
                         .lookup(q.meta)
                         .await
                         .into_iter()
@@ -172,16 +172,12 @@ where
     }
 }
 
-#[handler]
-pub fn ws_control(
-    ws: WebSocket,
-    data: Data<&(
-        Arc<WebSocketMessageHandler<SubsonicMusicSourceFactory>>,
-        Arc<ServiceEventsRx<Arc<QueueState>>>,
-    )>,
+pub async fn ws_control(
+    State(state): State<WebSocketState>,
+    ws: WebSocketUpgrade,
 ) -> impl IntoResponse {
-    let controls = data.0.0.clone();
-    let mut queue_state_change_events = data.1.resubscribe();
+    let controls = state.music_source_factory;
+    let mut queue_state_change_events = state.events_rx.resubscribe();
     ws.on_upgrade(move |socket| async move {
 
         let (mut response_stream, mut rx) = socket.split();
@@ -195,12 +191,12 @@ pub fn ws_control(
                     match response {
                         WsResponseInternal::Data(response) =>{
                             if let Ok(ws_response) = serde_json::to_string(&response) {
-                        let _ = response_stream.send(Message::Text(ws_response)).await;
+                        let _ = response_stream.send(Message::Text(ws_response.into())).await;
                     } else {
                         tracing::warn!(msg="Couldn't serialize response", response=?response);
                     }
                         },
-                        WsResponseInternal::Pong => {let _ = response_stream.send(Message::Pong(vec![])).await;},
+                        WsResponseInternal::Pong => {let _ = response_stream.send(Message::Pong(vec![].into())).await;},
                         WsResponseInternal::Close => {let _ = response_stream.send(Message::Close(None)).await;}
                     }
                 } else {
@@ -225,7 +221,7 @@ pub fn ws_control(
                                 tokio::spawn(handler.handle(cmd, tx.clone()));
                             }
                             Err(e) => {
-                                tracing::warn!(msg="Incoming message invalid", raw=text, error=?e);
+                                tracing::warn!(msg="Incoming message invalid", raw=?text, error=?e);
                                 // don't tell the user?
                                 handler.close(tx.clone()).await;
                             }

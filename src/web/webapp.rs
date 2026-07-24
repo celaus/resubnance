@@ -8,16 +8,16 @@ use std::{
     path::PathBuf,
 };
 
-use poem::Endpoint;
-use poem::http::StatusCode;
-use poem::{
-    error::InternalServerError,
-    handler,
-    web::{
-        Data,
-        Html,
-    },
+use axum::extract::{
+    Path,
+    State,
 };
+use axum::response::{
+    Html,
+    IntoResponse,
+    Response,
+};
+use http::StatusCode;
 use serde::{
     Deserialize,
     Serialize,
@@ -29,10 +29,10 @@ use tera::{
 
 use lazy_static::lazy_static;
 
+use crate::web::WebAppState;
 use crate::{
     config::{
         self,
-        ResubnanceConfig,
     },
     svc::{
         ServiceFactory,
@@ -63,44 +63,41 @@ lazy_static! {
     };
 }
 
-#[handler]
-#[tracing::instrument(skip(config))]
-pub fn webapp(config: Data<&ResubnanceConfig>) -> Result<Html<String>, poem::Error> {
+#[axum::debug_handler]
+pub async fn webapp(State(state): State<WebAppState>) -> Response {
+    let config = state.config;
     let mut context = Context::new();
     context.insert("name", &config.server.name);
     context.insert("baseUrl", &config.server.external_url);
     context.insert("version", &format!("v{}", env!("CARGO_PKG_VERSION")));
-    TEMPLATES
-        .render("index.html", &context)
-        .map_err(InternalServerError)
-        .map(Html)
-}
-
-#[derive(Debug)]
-pub struct DeleteIdFromCacheEp {
-    cache_dir: PathBuf,
-}
-
-impl DeleteIdFromCacheEp {
-    pub fn new(cache_dir: PathBuf) -> Self {
-        Self { cache_dir }
+    match TEMPLATES.render("index.html", &context) {
+        Ok(t) => Html(t).into_response(),
+        Err(e) => internal_server_error(e),
     }
 }
 
-impl Endpoint for DeleteIdFromCacheEp {
-    type Output = ();
+#[derive(Debug, Deserialize, Serialize)]
+pub struct Params {
+    id: String,
+}
 
-    #[tracing::instrument]
-    fn call(&self, req: poem::Request) -> impl Future<Output = poem::Result<Self::Output>> + Send {
-        let cache_dir = self.cache_dir.clone();
-        return async move {
-            let id = req.path_params::<String>()?;
-            let all_chached_mp3s =
-                tokio::task::spawn_blocking(move || find_all_cached_files(cache_dir))
-                    .await
-                    .unwrap()
-                    .map_err(internal_server_error)?;
-            let to_delete = all_chached_mp3s
+pub async fn cache_delete_by_id(
+    Path(params): Path<Params>,
+    State(state): State<WebAppState>,
+) -> Response {
+    let cache_dir = state
+        .config
+        .subsonic
+        .caching_strategy
+        .cache_dir()
+        .unwrap_or(env::temp_dir());
+    let id = params.id;
+    match tokio::task::spawn_blocking(move || find_all_cached_files(cache_dir))
+        .await
+        .unwrap()
+    {
+        Ok(all_cached_mp3s) => {
+            let to_delete = all_cached_mp3s
                 .into_iter()
                 .filter_map(
                     |m| match m.file_stem().map(|f| f.to_string_lossy().to_string()) {
@@ -110,78 +107,70 @@ impl Endpoint for DeleteIdFromCacheEp {
                 )
                 .next();
             if let Some(f) = to_delete {
-                tokio::fs::remove_file(&f)
-                    .await
-                    .map_err(internal_server_error)
+                match tokio::fs::remove_file(&f).await {
+                    Ok(_) => (StatusCode::OK, "").into_response(),
+                    Err(e) => internal_server_error(e),
+                }
             } else {
-                Err(poem::Error::from_status(StatusCode::NOT_FOUND))
+                (StatusCode::NOT_FOUND, "Not Found").into_response()
             }
-        };
+        }
+        Err(e) => internal_server_error(e),
     }
 }
 
-#[derive(Debug)]
-pub struct EmptyCacheEp {
-    cache_dir: PathBuf,
-}
-
-impl EmptyCacheEp {
-    pub fn new(cache_dir: PathBuf) -> Self {
-        Self { cache_dir }
-    }
-}
-
-impl Endpoint for EmptyCacheEp {
-    type Output = ();
-
-    #[tracing::instrument]
-    fn call(&self, req: poem::Request) -> impl Future<Output = poem::Result<Self::Output>> + Send {
-        let cache_dir = self.cache_dir.clone();
-        return async move {
-            let all_chached_mp3s =
-                tokio::task::spawn_blocking(move || find_all_cached_files(cache_dir))
-                    .await
-                    .unwrap()
-                    .map_err(internal_server_error)?;
-            for mp3 in all_chached_mp3s {
+pub async fn cache_delete_all(State(state): State<WebAppState>) -> Response {
+    let cache_dir = state
+        .config
+        .subsonic
+        .caching_strategy
+        .cache_dir()
+        .unwrap_or(env::temp_dir());
+    match tokio::task::spawn_blocking(move || find_all_cached_files(cache_dir))
+        .await
+        .unwrap()
+    {
+        Ok(all_cached_mp3s) => {
+            for mp3 in all_cached_mp3s {
                 if let Err(e) = tokio::fs::remove_file(mp3.as_path()).await {
                     tracing::warn!(
                         mp3 = mp3.to_str().unwrap(),
                         action = "delete",
                         msg = "Cannot delete file"
                     );
-                    return Err(internal_server_error(e));
+                    return internal_server_error(e);
                 }
             }
-            Ok(())
-        };
+            (StatusCode::OK, "").into_response()
+        }
+        Err(e) => internal_server_error(e),
     }
 }
 
-#[handler]
-#[tracing::instrument(skip(config))]
-pub async fn cache(config: Data<&ResubnanceConfig>) -> Result<Html<String>, poem::Error> {
+pub async fn cache(State(state): State<WebAppState>) -> Response {
+    let config = state.config;
     let cache_dir = config
         .subsonic
         .caching_strategy
         .cache_dir()
         .unwrap_or(env::temp_dir());
 
-    let cached_items = build_cached_items(cache_dir.clone(), config.subsonic.clone())
-        .await
-        .map_err(|e| poem::Error::new(e, StatusCode::INTERNAL_SERVER_ERROR))?;
+    match build_cached_items(cache_dir.clone(), config.subsonic.clone()).await {
+        Ok(cached_items) => {
+            let mut context = Context::new();
+            context.insert("name", &config.server.name);
+            context.insert("baseUrl", &config.server.external_url);
+            context.insert("version", &format!("v{}", env!("CARGO_PKG_VERSION")));
+            context.insert("cache", &cached_items);
+            context.insert("cache_dir", &cache_dir.to_string_lossy().to_string());
 
-    let mut context = Context::new();
-    context.insert("name", &config.server.name);
-    context.insert("baseUrl", &config.server.external_url);
-    context.insert("version", &format!("v{}", env!("CARGO_PKG_VERSION")));
-    context.insert("cache", &cached_items);
-    context.insert("cache_dir", &cache_dir.to_string_lossy().to_string());
-
-    TEMPLATES
-        .render("cache.html", &context)
-        .map_err(internal_server_error)
-        .map(Html)
+            match TEMPLATES.render("cache.html", &context) {
+                Ok(t) => Html(t).into_response(),
+                Err(e) => internal_server_error(e),
+            }
+        }
+        Err(e) => internal_server_error(e),
+    }
 }
 
 fn with_leading_zeros(
@@ -200,7 +189,7 @@ fn with_leading_zeros(
 
 fn find_all_cached_files(cache_dir: PathBuf) -> io::Result<Vec<PathBuf>> {
     let files = fs::read_dir(&cache_dir)?;
-    let all_chached_mp3s: Vec<_> = files
+    let all_cached_mp3s: Vec<_> = files
         .filter_map(|f| f.ok())
         .map(|f| f.path())
         .filter(|f| {
@@ -210,7 +199,7 @@ fn find_all_cached_files(cache_dir: PathBuf) -> io::Result<Vec<PathBuf>> {
                 .unwrap_or(false)
         })
         .collect();
-    Ok(all_chached_mp3s)
+    Ok(all_cached_mp3s)
 }
 
 #[tracing::instrument]
@@ -218,19 +207,19 @@ async fn build_cached_items(
     cache_dir: PathBuf,
     config: config::Subsonic,
 ) -> Result<BTreeMap<String, CachedItemMetadata>, io::Error> {
-    let svc = SubsonicMusicSourceFactory::new(config).get_instance();
+    let svc = SubsonicMusicSourceFactory::new(config).get_instance().await;
     let mut map = BTreeMap::new();
-    let all_chached_mp3s = tokio::task::spawn_blocking(move || find_all_cached_files(cache_dir))
+    let all_cached_mp3s = tokio::task::spawn_blocking(move || find_all_cached_files(cache_dir))
         .await
         .unwrap()?;
-    let ids: Vec<_> = all_chached_mp3s
+    let ids: Vec<_> = all_cached_mp3s
         .iter()
         .filter_map(|f| f.file_stem())
         .map(|f| f.to_string_lossy().to_string())
         .collect();
 
     let data = svc.lookup(ids).await;
-    for (f, data) in all_chached_mp3s.into_iter().zip(data) {
+    for (f, data) in all_cached_mp3s.into_iter().zip(data) {
         let file_id = f
             .file_stem()
             .map(|s| s.to_string_lossy().to_string())
@@ -270,7 +259,7 @@ struct CachedItemMetadata {
     size: u64,
 }
 
-fn internal_server_error<E: Error + Send + Sync + 'static>(e: E) -> poem::Error {
+fn internal_server_error<E: Error + Send + Sync + 'static>(e: E) -> Response {
     tracing::info!(err=?e, returning=?StatusCode::INTERNAL_SERVER_ERROR);
-    poem::Error::new(e, StatusCode::INTERNAL_SERVER_ERROR)
+    (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response()
 }

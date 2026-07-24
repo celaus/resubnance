@@ -13,6 +13,14 @@ name = "resubnance"
 path = "src/lib.rs"
 
 [dependencies]
+axum = { version = "*", features = [
+    "ws",
+    "http1",
+    "tracing",
+    "tower-log",
+    "matched-path",
+    "macros"
+], default-features = false }
 rodio = { git = "https://github.com/RustAudio/rodio.git", features = [
     "tracing",
     "playback",
@@ -26,11 +34,11 @@ reqwest = { version = "0.13.4", features = [
     "blocking",
     "multipart",
 ], default-features = false }
-poem = { version = "3", default-features = false, features = [
-    "rustls",
-    "websocket",
-    "static-files",
-] }
+# poem = { version = "3", default-features = false, features = [
+#     "rustls",
+#     "websocket",
+#     "static-files",
+# ] }
 tokio = { version = "1", default-features = false, features = [
     "rt-multi-thread",
     "fs",
@@ -51,6 +59,8 @@ url = { version = "2", features = ["serde"] }
 serde_with = { version = "3", features = ["macros"] }
 arc-swap = "1"
 schemars = "1"
+tower-http = {version = "0.6", features = ["fs"], default-features = false}
+http = "1.4"
 
 [patch.crates-io]
 # https://github.com/RustAudio/cpal/issues/1134 (not yet released to rodio)

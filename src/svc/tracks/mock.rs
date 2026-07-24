@@ -269,7 +269,7 @@ impl Default for MockSubsonicMusicSourceFactory {
 impl ServiceFactory for MockSubsonicMusicSourceFactory {
     type Service = MockSubsonicMusicSource;
 
-    fn get_instance(&self) -> Self::Service {
+    async fn get_instance(&self) -> Self::Service {
         let mut source = MockSubsonicMusicSource::new();
 
         if let Some(tracks) = &self.tracks {
@@ -388,17 +388,17 @@ mod tests {
         assert_eq!(results.len(), 2);
     }
 
-    #[test]
-    fn test_mock_factory_default() {
+    #[tokio::test]
+    async fn test_mock_factory_default() {
         let factory = MockSubsonicMusicSourceFactory::new();
-        let source = factory.get_instance();
+        let source = factory.get_instance().await;
 
         assert_eq!(source.tracks.len(), 5);
         assert_eq!(source.playlists.len(), 2);
     }
 
-    #[test]
-    fn test_mock_factory_with_custom_tracks() {
+    #[tokio::test]
+    async fn test_mock_factory_with_custom_tracks() {
         let custom_tracks = vec![MetaData {
             id: "custom-1".into(),
             title: "Custom Track".into(),
@@ -409,14 +409,14 @@ mod tests {
         }];
 
         let factory = MockSubsonicMusicSourceFactory::new().with_tracks(custom_tracks);
-        let source = factory.get_instance();
+        let source = factory.get_instance().await;
 
         assert_eq!(source.tracks.len(), 1);
         assert_eq!(source.tracks[0].title, "Custom Track");
     }
 
-    #[test]
-    fn test_mock_factory_with_custom_playlists() {
+    #[tokio::test]
+    async fn test_mock_factory_with_custom_playlists() {
         let custom_playlists = vec![Playlist {
             id: "custom-pl".into(),
             name: "Custom Playlist".into(),
@@ -425,7 +425,7 @@ mod tests {
         }];
 
         let factory = MockSubsonicMusicSourceFactory::new().with_playlists(custom_playlists);
-        let source = factory.get_instance();
+        let source = factory.get_instance().await;
 
         assert_eq!(source.playlists.len(), 1);
         assert_eq!(source.playlists[0].name, "Custom Playlist");

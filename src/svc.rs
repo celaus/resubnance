@@ -104,5 +104,5 @@ pub trait SingletonService {
 
 pub trait ServiceFactory {
     type Service: Send;
-    fn get_instance(&self) -> Self::Service;
+    async fn get_instance(&self) -> Self::Service;
 }

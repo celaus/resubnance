@@ -1,19 +1,25 @@
 #![allow(clippy::result_large_err)]
 use std::env;
+use std::net::SocketAddr;
 use std::path::Path;
 use std::sync::Arc;
 
-use poem::endpoint::StaticFileEndpoint;
-use poem::middleware::AddData;
-use poem::{
-    EndpointExt,
+use axum::Router;
+use axum::routing::{
     delete,
     get,
 };
-use resubnance::web::webapp::EmptyCacheEp;
+use resubnance::web::webapp::{
+    cache_delete_all,
+    cache_delete_by_id,
+};
 use resubnance::web::ws::{
     self,
     WebSocketMessageHandler,
+};
+use resubnance::web::{
+    WebAppState,
+    WebSocketState,
 };
 use resubnance::{
     svc::{
@@ -31,18 +37,14 @@ use resubnance::{
         },
     },
     web::webapp::{
-        DeleteIdFromCacheEp,
         cache,
         webapp,
     },
 };
-
-use poem::{
-    Route,
-    listener::TcpListener,
-};
+use tower_http::services::ServeFile;
 
 use resubnance::config;
+use tokio::net::TcpListener;
 use tokio::sync::broadcast;
 
 const CHANNEL_SIZE: usize = 20;
@@ -61,9 +63,9 @@ async fn main() -> Result<(), SvcError> {
         env!("CARGO_PKG_VERSION")
     );
     let source_svc_factory = SubsonicMusicSourceFactory::new(config.subsonic.clone());
-
+    tracing::debug!(config=?config, "scanning library");
     // A test instance
-    source_svc_factory.get_instance().init().await.unwrap();
+    source_svc_factory.get_instance().await.init().await?;
 
     let (audio_sink_tx, audio_sink_rx) = tokio::sync::mpsc::channel(CHANNEL_SIZE);
     let (player_events_tx, player_events_rx) = tokio::sync::mpsc::channel(CHANNEL_SIZE);
@@ -77,7 +79,7 @@ async fn main() -> Result<(), SvcError> {
     .await
     .unwrap();
 
-    let dl = source_svc_factory.get_instance();
+    let dl = source_svc_factory.get_instance().await;
     let queue_mgr_svc = tokio::task::spawn_blocking(|| {
         QueueManagerService::new(player_events_rx, queue_mgr_rx, dl, q_state_events_tx)
     })
@@ -107,45 +109,44 @@ async fn main() -> Result<(), SvcError> {
         queue_mgr_tx.clone(),
         audio_sink_tx.clone(),
     );
-    let cache_dir = config
-        .subsonic
-        .caching_strategy
-        .cache_dir()
-        .unwrap_or(env::temp_dir());
 
-    let srv = Route::new()
-        .at("/", get(webapp.data(config.clone())))
-        .at("/cache", get(cache.data(config.clone())))
-        .at("/api/cache", delete(EmptyCacheEp::new(cache_dir.clone())))
-        .at(
-            "/api/cache/:id",
-            delete(DeleteIdFromCacheEp::new(cache_dir.clone())),
+    let webapp_state = WebAppState {
+        config: Arc::new(config.clone()),
+    };
+    let srv = Router::new()
+        .merge(
+            Router::new()
+                .route("/", get(webapp))
+                .route("/cache", get(cache)),
         )
-        .at(
-            "/favicon.svg",
-            StaticFileEndpoint::new("static/favicon.svg"),
+        .with_state(webapp_state.clone())
+        .nest(
+            "/api",
+            Router::new()
+                .route("/api/cache", delete(cache_delete_all))
+                .route("/api/cache/{id}", delete(cache_delete_by_id))
+                .with_state(webapp_state.clone()),
         )
-        .at("/style.css", StaticFileEndpoint::new("static/style.css"))
-        .at(
-            "/handlers.js",
-            StaticFileEndpoint::new("static/handlers.js"),
-        )
+        .route_service("/favicon.svg", ServeFile::new("static/favicon.svg"))
+        .route_service("/style.css", ServeFile::new("static/style.css"))
+        .route_service("/handlers.js", ServeFile::new("static/handlers.js"))
         .nest(
             "/schema",
-            Route::new()
-                .at("/request", ws::ws_schema_requests)
-                .at("/response", ws::ws_schema_responses),
+            Router::new()
+                .route("/request", get(ws::ws_schema_requests))
+                .route("/response", get(ws::ws_schema_responses)),
         )
-        .at(
+        .route(
             "/ws",
-            get(ws::ws_control).with(AddData::new((
-                Arc::new(ws_api),
-                Arc::new(q_state_events_rx),
-            ))),
+            get(ws::ws_control).with_state(WebSocketState {
+                music_source_factory: Arc::new(ws_api),
+                events_rx: Arc::new(q_state_events_rx),
+            }),
         );
-
-    poem::Server::new(TcpListener::bind(&config.server.url))
-        .run(srv)
-        .await
-        .map_err(SvcError::Io)
+    axum::serve(
+        TcpListener::bind(&config.server.url).await?,
+        srv.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .await?;
+    Ok(())
 }
