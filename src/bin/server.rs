@@ -41,7 +41,13 @@ use resubnance::{
         webapp,
     },
 };
-use tower_http::services::ServeFile;
+use tower_http::{
+    services::ServeFile,
+    trace::{
+        DefaultMakeSpan,
+        TraceLayer,
+    },
+};
 
 use resubnance::config;
 use tokio::net::TcpListener;
@@ -142,6 +148,10 @@ async fn main() -> Result<(), SvcError> {
                 music_source_factory: Arc::new(ws_api),
                 events_rx: Arc::new(q_state_events_rx),
             }),
+        )
+        .layer(
+            TraceLayer::new_for_http()
+                .make_span_with(DefaultMakeSpan::default().include_headers(true)),
         );
     axum::serve(
         TcpListener::bind(&config.server.url).await?,
