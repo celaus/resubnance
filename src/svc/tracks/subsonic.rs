@@ -2,6 +2,7 @@ use std::{
     env,
     path::PathBuf,
     sync::Arc,
+    time::Duration,
 };
 
 use crate::{
@@ -27,7 +28,7 @@ use crate::{
         },
     },
 };
-use reqwest::Client as ReqwestClient;
+use reqwest::blocking::Client as ReqwestClient;
 use sunk::{
     collections::playlist::get_playlists,
     search,
@@ -43,7 +44,10 @@ pub struct SubsonicMusicSource {
 
 impl SubsonicMusicSource {
     pub fn new(config: &config::Subsonic) -> Result<Self, sunk::Error> {
-        let reqclient = ReqwestClient::builder().build().unwrap();
+        let reqclient = ReqwestClient::builder()
+            .connect_timeout(Duration::from_secs(30))
+            .build()
+            .unwrap();
         let client = sunk::Client::new(&config.url, &config.username, &config.password)?
             .with_client(reqclient);
         Ok(SubsonicMusicSource {
@@ -101,52 +105,44 @@ impl TracklistSourceProvider for SubsonicMusicSource {
     #[tracing::instrument(level = "info")]
     async fn init(&mut self) -> Result<(), SvcError> {
         let client = self.client.clone();
-        tokio::task::spawn_blocking(move || -> Result<(), SvcError> {
-            client
-                .ping()
-                .and(client.scan_library())
-                .map_err(|e| SvcError::Source(TrackSourceError::SubsonicSourceError(e)))?;
+        tokio::task::block_in_place(move || -> Result<(), SvcError> {
+            client.ping().and(client.scan_library()).map_err(|e| {
+                tracing::error!(err=?e, "Scanning library failed");
+                SvcError::Source(TrackSourceError::SubsonicSourceError(e))
+            })?;
             Ok(())
         })
-        .await
-        .unwrap()
     }
 
     #[tracing::instrument(level = "debug")]
     async fn random(&self, n: usize) -> Result<Vec<MetaData>, SvcError> {
         let client = self.client.clone();
-        tokio::task::spawn_blocking(move || -> Result<Vec<MetaData>, SvcError> {
+        tokio::task::block_in_place(move || -> Result<Vec<MetaData>, SvcError> {
             let random = sunk::song::Song::random(&client, n)
                 .map_err(|e| SvcError::Source(TrackSourceError::SubsonicSourceError(e)))?;
             Ok(random.iter().map(MetaData::from).collect())
         })
-        .await
-        .unwrap()
     }
 
     #[tracing::instrument(level = "debug")]
     async fn search(&self, query: String) -> Result<Vec<MetaData>, SvcError> {
         let client = self.client.clone();
-        tokio::task::spawn_blocking(move || -> Result<Vec<MetaData>, SvcError> {
+        tokio::task::block_in_place(move || -> Result<Vec<MetaData>, SvcError> {
             let results = client
                 .search(&query, search::NONE, search::NONE, search::ALL)
                 .map_err(|e| SvcError::Source(TrackSourceError::SubsonicSourceError(e)))?;
             Ok(results.songs.iter().map(MetaData::from).collect())
         })
-        .await
-        .unwrap()
     }
 
     #[tracing::instrument(level = "debug")]
     async fn playlists(&self) -> Result<Vec<Playlist>, SvcError> {
         let client = self.client.clone();
-        tokio::task::spawn_blocking(move || -> Result<Vec<Playlist>, SvcError> {
+        tokio::task::block_in_place(move || -> Result<Vec<Playlist>, SvcError> {
             let playlists = get_playlists(&client, None)
                 .map_err(|e| SvcError::Source(TrackSourceError::SubsonicSourceError(e)))?;
             Ok(playlists.iter().map(From::from).collect())
         })
-        .await
-        .unwrap()
     }
 
     #[tracing::instrument(level = "debug")]
@@ -215,7 +211,7 @@ impl SubsonicMusicSourceFactory {
 
 impl ServiceFactory for SubsonicMusicSourceFactory {
     type Service = SubsonicMusicSource;
-    fn get_instance(&self) -> Self::Service {
-        SubsonicMusicSource::new(&self.config).unwrap()
+    async fn get_instance(&self) -> Self::Service {
+        tokio::task::block_in_place(|| SubsonicMusicSource::new(&self.config).unwrap())
     }
 }

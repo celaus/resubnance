@@ -1,9 +1,7 @@
 use std::sync::Arc;
 
-use poem::{
-    Response,
-    handler,
-};
+use axum::response::Response;
+
 use serde::{
     Deserialize,
     Serialize,
@@ -281,20 +279,20 @@ pub fn print_all_possible_messages() {
 
 const SCHEMA_CONTENT_TYPE: &str = "application/schema+json";
 
-#[handler]
-pub fn ws_schema_requests() -> Response {
+pub async fn ws_schema_requests() -> Response {
     let request = schema_for!(WsRequest);
     let schema = serde_json::to_string_pretty(&request).unwrap();
     Response::builder()
-        .content_type(SCHEMA_CONTENT_TYPE)
-        .body(schema)
+        .header(http::header::CONTENT_TYPE, SCHEMA_CONTENT_TYPE)
+        .body(schema.into())
+        .unwrap()
 }
 
-#[handler]
-pub fn ws_schema_responses() -> Response {
+pub async fn ws_schema_responses() -> Response {
     let response = schema_for!(WsResponse);
     let schema = serde_json::to_string_pretty(&response).unwrap();
     Response::builder()
-        .content_type(SCHEMA_CONTENT_TYPE)
-        .body(schema)
+        .header(http::header::CONTENT_TYPE, SCHEMA_CONTENT_TYPE)
+        .body(schema.into())
+        .unwrap()
 }

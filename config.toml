@@ -4,7 +4,7 @@ external_url= "http://localhost:3000"
 name = "Resubnance" # for display purposes only
 
 [subsonic]
-url = "https://navidrome.instance.com"
+url = "https://nd.p.x5ff.xyz:10443"
 username = "admin"
 password = "admin"
 caching_strategy = { DiskCache = { path = "/tmp/resubnance", min_cache_before_play = 10240 } }

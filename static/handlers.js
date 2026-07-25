@@ -34,7 +34,7 @@ function connectWebSocket() {
     };
 
     ws.onerror = (error) => {
-        e(`WebSocket error: ${error}`);
+        e(`WebSocket error: ${JSON.stringify(error)}`);
         ws.close();
     };
 }
@@ -45,7 +45,7 @@ function sendMessage(message) {
         const msg = JSON.stringify({ rq: message });
         ws.send(msg);
     } else {
-        e(`Connection error: Cannot send ${message}`);
+        e(`Connection error: Cannot send ${JSON.stringify(message)}`);
     }
 }
 

@@ -86,7 +86,6 @@ impl DeviceSinkManager {
         if self.current_mixer.load().is_none() {
             let mixer = Arc::new(open_audio_device(&self.conf).unwrap());
             self.current_mixer.store(Some(mixer));
-            self.connect_player();
         }
         Ok(())
     }

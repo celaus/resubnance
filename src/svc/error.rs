@@ -8,7 +8,7 @@ pub enum SvcError {
     #[error("Invalid configuration: {0:?}")]
     Config(#[from] Box<figment::Error>),
     #[error("I/O error: {0:?}")]
-    Io(#[from] std::io::Error),
+    Io(std::io::Error),
     // #[error("Async I/O error: {0:?}")]
     // AsyncIo(#[from]tokio::io::Error)
     #[error("Internal Error")]
@@ -33,5 +33,11 @@ impl From<JoinError> for SvcError {
     #[tracing::instrument(level = "debug")]
     fn from(value: JoinError) -> Self {
         SvcError::Internal()
+    }
+}
+
+impl From<tokio::io::Error> for SvcError {
+    fn from(value: tokio::io::Error) -> Self {
+        SvcError::Io(value)
     }
 }
