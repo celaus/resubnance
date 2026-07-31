@@ -79,18 +79,14 @@ async fn main() -> Result<(), SvcError> {
     let (q_state_events_tx, q_state_events_rx) = tokio::sync::broadcast::channel(CHANNEL_SIZE);
 
     let audio_conf = config.audio.clone();
-    let sink_svc = tokio::task::spawn_blocking(|| {
+    let sink_svc = tokio::task::block_in_place(|| {
         DefaultAudioSink::new(audio_conf, audio_sink_rx, player_events_tx)
-    })
-    .await
-    .unwrap();
+    });
 
     let dl = source_svc_factory.get_instance().await;
-    let queue_mgr_svc = tokio::task::spawn_blocking(|| {
+    let queue_mgr_svc = tokio::task::block_in_place(|| {
         QueueManagerService::new(player_events_rx, queue_mgr_rx, dl, q_state_events_tx)
-    })
-    .await
-    .unwrap();
+    });
 
     let (ext_tx, _) = broadcast::channel(20); //20 may be high or low?
     let mut supervisor = supervisor::ServiceSupervisor::new(ext_tx.clone());

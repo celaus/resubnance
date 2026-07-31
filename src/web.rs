@@ -1,4 +1,8 @@
-use std::sync::Arc;
+use std::{
+    env,
+    path::PathBuf,
+    sync::Arc,
+};
 
 use crate::{
     config::ResubnanceConfig,
@@ -17,6 +21,16 @@ pub mod ws;
 #[derive(Clone, Debug)]
 pub struct WebAppState {
     pub config: Arc<ResubnanceConfig>,
+}
+
+impl WebAppState {
+    pub fn cache_dir_or_env_tempdir(&self) -> PathBuf {
+        self.config
+            .subsonic
+            .caching_strategy
+            .cache_dir()
+            .unwrap_or(env::temp_dir())
+    }
 }
 
 #[derive(Clone, Debug)]

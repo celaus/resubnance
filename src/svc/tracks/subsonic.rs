@@ -147,28 +147,17 @@ impl TracklistSourceProvider for SubsonicMusicSource {
 
     #[tracing::instrument(level = "debug")]
     async fn lookup(&self, ids: Vec<String>) -> Vec<Result<MetaData, SvcError>> {
-        let handles: Vec<_> = ids
-            .into_iter()
+        ids.into_iter()
             .map(Arc::new)
             .map(|id| {
                 let client = self.client.clone();
-                tokio::task::spawn_blocking(move || {
+                tokio::task::block_in_place(move || {
                     Song::get(&client, id.as_str())
                         .map(|s| MetaData::from(&s))
-                        .map_err(TrackSourceError::from)
+                        .map_err(|e| SvcError::Source(TrackSourceError::from(e)))
                 })
             })
-            .collect();
-
-        let mut results: Vec<Result<MetaData, SvcError>> = vec![];
-        for h in handles {
-            results.push(match h.await {
-                Ok(ref d) if let Ok(m) = d => Ok(m.clone()),
-                Err(e) => Err(SvcError::from(e)),
-                Ok(_) => Err(SvcError::Internal()),
-            });
-        }
-        results
+            .collect()
     }
 }
 

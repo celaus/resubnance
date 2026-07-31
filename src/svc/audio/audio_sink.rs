@@ -281,7 +281,7 @@ impl DefaultAudioSink {
                         let audio_events_tx = audio_events_tx.clone();
                         let q_events_tx = q_events_tx.clone();
 
-                        let _ = tokio::task::spawn_blocking(move || {
+                        tokio::task::block_in_place(move || {
                             tracing::debug!(msg="Player thread started. Appending data", data=?src);
                             match decoder::Decoder::new(src) {
                                 Ok(data) => {
@@ -309,8 +309,7 @@ impl DefaultAudioSink {
                                     tracing::error!(error = ?e);
                                 }
                             }
-                        })
-                        .await;
+                        });
                     } else {
                         tracing::error!(
                             msg = "Player couldn't connect to the mixer",
