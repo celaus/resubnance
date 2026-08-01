@@ -203,10 +203,13 @@ impl ServiceFactory for SubsonicMusicSourceFactory {
     type Service = SubsonicMusicSource;
     #[tracing::instrument(skip_all, fields(name=self.config.url))]
     async fn get_instance(&self) -> Self::Service {
-        tokio::task::block_in_place(|| {
-            let src = SubsonicMusicSource::new(&self.config);
+        let config = self.config.clone();
+        tokio::task::spawn_blocking(move || {
+            let src = SubsonicMusicSource::new(&config);
             tracing::debug!(source=?src, "creating subsonic music source");
             src.unwrap()
         })
+        .await
+        .unwrap()
     }
 }
