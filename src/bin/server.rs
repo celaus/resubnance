@@ -121,40 +121,40 @@ async fn main() -> Result<(), SvcError> {
     let webapp_state = WebAppState {
         config: Arc::new(config.clone()),
     };
-    let srv = Router::new()
-        .merge(
-            Router::new()
-                .route("/", get(webapp))
-                .route("/cache", get(cache)),
-        )
-        .with_state(webapp_state.clone())
-        .nest(
-            "/api",
-            Router::new()
-                .route("/cache", delete(cache_delete_all))
-                .route("/cache/{id}", delete(cache_delete_by_id))
-                .with_state(webapp_state.clone()),
-        )
-        .route_service("/favicon.svg", ServeFile::new("static/favicon.svg"))
-        .route_service("/style.css", ServeFile::new("static/style.css"))
-        .route_service("/handlers.js", ServeFile::new("static/handlers.js"))
-        .nest(
-            "/schema",
-            Router::new()
-                .route("/request", get(ws::ws_schema_requests))
-                .route("/response", get(ws::ws_schema_responses)),
-        )
-        .route(
-            "/ws",
-            get(ws::ws_control).with_state(WebSocketState {
-                music_source_factory: Arc::new(ws_api),
-                events_rx: Arc::new(q_state_events_rx),
-            }),
-        )
-        .layer(
-            TraceLayer::new_for_http()
-                .make_span_with(DefaultMakeSpan::default().include_headers(true)),
-        );
+    // let srv = Router::new()
+    //     .merge(
+    //         Router::new()
+    //             .route("/", get(webapp))
+    //             .route("/cache", get(cache)),
+    //     )
+    //     .with_state(webapp_state.clone())
+    //     .nest(
+    //         "/api",
+    //         Router::new()
+    //             .route("/cache", delete(cache_delete_all))
+    //             .route("/cache/{id}", delete(cache_delete_by_id))
+    //             .with_state(webapp_state.clone()),
+    //     )
+    //     .route_service("/favicon.svg", ServeFile::new("static/favicon.svg"))
+    //     .route_service("/style.css", ServeFile::new("static/style.css"))
+    //     .route_service("/handlers.js", ServeFile::new("static/handlers.js"))
+    //     .nest(
+    //         "/schema",
+    //         Router::new()
+    //             .route("/request", get(ws::ws_schema_requests))
+    //             .route("/response", get(ws::ws_schema_responses)),
+    //     )
+    //     .route(
+    //         "/ws",
+    //         get(ws::ws_control).with_state(WebSocketState {
+    //             music_source_factory: Arc::new(ws_api),
+    //             events_rx: Arc::new(q_state_events_rx),
+    //         }),
+    //     )
+    //     .layer(
+    //         TraceLayer::new_for_http()
+    //             .make_span_with(DefaultMakeSpan::default().include_headers(true)),
+    //     );
     let addr = TcpListener::bind(&config.server.url).await;
     tracing::debug!(addr=?addr, "🐕‍🦺 serving ...");
 
@@ -169,7 +169,6 @@ async fn main() -> Result<(), SvcError> {
     tracing::debug!(result=?server_result, "✅ web server exited. Good bye");
     Ok(())
 }
-
 
 async fn handler() -> axum::response::Html<&'static str> {
     axum::response::Html("<h1>Hello, World!</h1>")
