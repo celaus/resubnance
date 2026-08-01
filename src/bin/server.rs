@@ -158,6 +158,8 @@ async fn main() -> Result<(), SvcError> {
     let addr = TcpListener::bind(&config.server.url).await;
     tracing::debug!(addr=?addr, "🐕‍🦺 serving ...");
 
+    let srv = Router::new().route("/", get(handler));
+
     let server_result = axum::serve(
         addr?,
         srv.into_make_service_with_connect_info::<SocketAddr>(),
@@ -166,4 +168,9 @@ async fn main() -> Result<(), SvcError> {
     .await;
     tracing::debug!(result=?server_result, "✅ web server exited. Good bye");
     Ok(())
+}
+
+
+async fn handler() -> axum::response::Html<&'static str> {
+    axum::response::Html("<h1>Hello, World!</h1>")
 }
