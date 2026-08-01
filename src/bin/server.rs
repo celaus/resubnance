@@ -162,6 +162,7 @@ async fn main() -> Result<(), SvcError> {
         addr?,
         srv.into_make_service_with_connect_info::<SocketAddr>(),
     )
+    .into_future()
     .await;
     tracing::debug!(result=?server_result, "✅ web server exited. Good bye");
     Ok(())
