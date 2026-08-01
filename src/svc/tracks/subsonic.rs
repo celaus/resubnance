@@ -48,8 +48,7 @@ impl SubsonicMusicSource {
             .connect_timeout(Duration::from_secs(30))
             .build();
         tracing::debug!(reqwest_client=?raw, "creating client");
-        let reqclient= raw
-            .unwrap();
+        let reqclient = raw.unwrap();
         let client = sunk::Client::new(&config.url, &config.username, &config.password)?
             .with_client(reqclient);
         Ok(SubsonicMusicSource {
@@ -202,11 +201,10 @@ impl SubsonicMusicSourceFactory {
 
 impl ServiceFactory for SubsonicMusicSourceFactory {
     type Service = SubsonicMusicSource;
-    #[tracing::instrument]
+    #[tracing::instrument(skip_all, fields(name=self.config.url))]
     async fn get_instance(&self) -> Self::Service {
         tokio::task::block_in_place(|| {
-            
-            let src = SubsonicMusicSource::new(&self.config); 
+            let src = SubsonicMusicSource::new(&self.config);
             tracing::debug!(source=?src, "creating subsonic music source");
             src.unwrap()
         })

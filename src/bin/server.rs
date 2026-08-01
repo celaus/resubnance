@@ -64,10 +64,11 @@ async fn main() -> Result<(), SvcError> {
 
     let config: config::ResubnanceConfig = config::parse(Path::new("config.toml"))?;
     tracing::info!(
-        "🔉 Welcome to {}, v{}",
+        "🔉 Welcome to {}, v{}. Starting 🚀",
         env!("CARGO_PKG_NAME"),
         env!("CARGO_PKG_VERSION")
     );
+
     let source_svc_factory = SubsonicMusicSourceFactory::new(config.subsonic.clone());
     tracing::debug!(config=?config, "scanning library");
     // A test instance
@@ -77,12 +78,13 @@ async fn main() -> Result<(), SvcError> {
     let (player_events_tx, player_events_rx) = tokio::sync::mpsc::channel(CHANNEL_SIZE);
     let (queue_mgr_tx, queue_mgr_rx) = tokio::sync::mpsc::channel(CHANNEL_SIZE);
     let (q_state_events_tx, q_state_events_rx) = tokio::sync::broadcast::channel(CHANNEL_SIZE);
+    tracing::debug!("creating audio sink");
 
     let audio_conf = config.audio.clone();
     let sink_svc = tokio::task::block_in_place(|| {
         DefaultAudioSink::new(audio_conf, audio_sink_rx, player_events_tx)
     });
-
+    tracing::debug!("creating queue manager");
     let dl = source_svc_factory.get_instance().await;
     let queue_mgr_svc = tokio::task::block_in_place(|| {
         QueueManagerService::new(player_events_rx, queue_mgr_rx, dl, q_state_events_tx)
@@ -90,6 +92,7 @@ async fn main() -> Result<(), SvcError> {
 
     let (ext_tx, _) = broadcast::channel(20); //20 may be high or low?
     let mut supervisor = supervisor::ServiceSupervisor::new(ext_tx.clone());
+    tracing::debug!("creating & starting external services");
 
     for externals in config.additional.iter() {
         match externals {
@@ -106,11 +109,14 @@ async fn main() -> Result<(), SvcError> {
     supervisor.start(sink_svc).await;
     supervisor.start(queue_mgr_svc).await;
 
+    tracing::debug!("creating external services");
     let ws_api = WebSocketMessageHandler::new(
         source_svc_factory.clone().into(),
         queue_mgr_tx.clone(),
         audio_sink_tx.clone(),
     );
+
+    tracing::debug!("setting up web server");
 
     let webapp_state = WebAppState {
         config: Arc::new(config.clone()),
@@ -154,5 +160,6 @@ async fn main() -> Result<(), SvcError> {
         srv.into_make_service_with_connect_info::<SocketAddr>(),
     )
     .await?;
+    tracing::debug!("✅ web server exited. Good bye");
     Ok(())
 }
