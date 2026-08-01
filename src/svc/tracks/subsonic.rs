@@ -44,9 +44,11 @@ pub struct SubsonicMusicSource {
 
 impl SubsonicMusicSource {
     pub fn new(config: &config::Subsonic) -> Result<Self, sunk::Error> {
-        let reqclient = ReqwestClient::builder()
+        let raw = ReqwestClient::builder()
             .connect_timeout(Duration::from_secs(30))
-            .build()
+            .build();
+        tracing::debug!(reqwest_client=?raw, "creating client");
+        let reqclient= raw
             .unwrap();
         let client = sunk::Client::new(&config.url, &config.username, &config.password)?
             .with_client(reqclient);
@@ -200,7 +202,13 @@ impl SubsonicMusicSourceFactory {
 
 impl ServiceFactory for SubsonicMusicSourceFactory {
     type Service = SubsonicMusicSource;
+    #[tracing::instrument]
     async fn get_instance(&self) -> Self::Service {
-        tokio::task::block_in_place(|| SubsonicMusicSource::new(&self.config).unwrap())
+        tokio::task::block_in_place(|| {
+            
+            let src = SubsonicMusicSource::new(&self.config); 
+            tracing::debug!(source=?src, "creating subsonic music source");
+            src.unwrap()
+        })
     }
 }
