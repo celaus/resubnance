@@ -72,7 +72,7 @@ async fn main() -> Result<(), SvcError> {
     let source_svc_factory = SubsonicMusicSourceFactory::new(config.subsonic.clone());
     tracing::debug!(config=?config, "scanning library");
     // A test instance
-    source_svc_factory.get_instance().await.init().await?;
+    // source_svc_factory.get_instance().await.init().await?;
 
     let (audio_sink_tx, audio_sink_rx) = tokio::sync::mpsc::channel(CHANNEL_SIZE);
     let (player_events_tx, player_events_rx) = tokio::sync::mpsc::channel(CHANNEL_SIZE);
