@@ -155,11 +155,14 @@ async fn main() -> Result<(), SvcError> {
             TraceLayer::new_for_http()
                 .make_span_with(DefaultMakeSpan::default().include_headers(true)),
         );
-    axum::serve(
-        TcpListener::bind(&config.server.url).await?,
+    let addr = TcpListener::bind(&config.server.url).await;
+    tracing::debug!(addr=?addr, "🐕‍🦺 serving ...");
+
+    let server_result = axum::serve(
+        addr?,
         srv.into_make_service_with_connect_info::<SocketAddr>(),
     )
-    .await?;
-    tracing::debug!("✅ web server exited. Good bye");
+    .await;
+    tracing::debug!(result=?server_result, "✅ web server exited. Good bye");
     Ok(())
 }
