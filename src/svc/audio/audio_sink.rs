@@ -179,6 +179,8 @@ impl DefaultAudioSink {
         audio_events_tx: mpsc::Sender<CommandWithMeta<SinkEvent, QueueManagerCommandTx>>,
         device_mixer: Arc<DeviceSinkManager>,
     ) {
+        tracing::info!("starting audio service...");
+
         if let Err(e) = device_mixer.open_mixer() {
             tracing::error!(
                 msg = "Couldn't open audio device",
@@ -187,6 +189,7 @@ impl DefaultAudioSink {
             );
             return;
         }
+        tracing::debug!("awaiting commands ...");
         while let Some(cmd_and_meta) = command_channel.recv().await {
             tracing::debug!(msg="New command received", cmd=?cmd_and_meta);
             let cmd = cmd_and_meta.cmd;
