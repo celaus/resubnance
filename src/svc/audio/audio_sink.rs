@@ -332,6 +332,10 @@ impl DefaultAudioSink {
 }
 
 impl SingletonService for DefaultAudioSink {
+    fn name(&self) -> String {
+        "DefaultAudioSink".into()
+    }
+
     #[tracing::instrument(skip(self))]
     async fn run(self) {
         let audio_events_tx_ = self.audio_events_tx.clone();

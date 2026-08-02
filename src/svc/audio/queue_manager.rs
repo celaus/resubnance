@@ -241,6 +241,10 @@ where
             }
         }
     }
+
+    fn name(&self) -> String {
+        "QueueManagerService".into()
+    }
 }
 
 #[cfg(test)]
