@@ -106,7 +106,7 @@ async fn main() -> Result<(), SvcError> {
             config::ExternalServices::Other => {}
         }
     }
-    // supervisor.start(sink_svc).await;
+    supervisor.start(sink_svc).await;
     supervisor.start(queue_mgr_svc).await;
 
     tracing::debug!("creating external services");
