@@ -41,7 +41,7 @@ impl ServiceSupervisor {
             svc.run().instrument(span).await;
             tracing::warn!(service = name, "service exited. quitting program.");
             // these are long running tasks, if they exit the program is done.
-            std::process::exit(SvcError::Internal().into());
+            // std::process::exit(SvcError::Internal().into());
         }));
     }
 }
