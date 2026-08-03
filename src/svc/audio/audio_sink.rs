@@ -138,15 +138,18 @@ impl DeviceSinkManager {
 #[tracing::instrument(level = "info")]
 fn open_audio_device(conf: &config::AudioSink) -> Result<MixerDeviceSink, DeviceSinkError> {
     let default_device = rodio::cpal::default_host().default_output_device().unwrap();
-    let handle = rodio::DeviceSinkBuilder::from_device(default_device)
-        .unwrap()
+    let handle_ = rodio::DeviceSinkBuilder::from_device(default_device);
+    tracing::debug!(device=?handle_, "from device");
+    let sampling_rate = NonZero::new(conf.sampling_rate); 
+    tracing::debug!(sampling_rate=?sampling_rate, "from device");
+   let h = handle_.unwrap()
         .with_buffer_size(BufferSize::Fixed(conf.buffer_size))
-        .with_sample_rate(NonZero::new(conf.sampling_rate).unwrap())
-        .with_sample_format(SampleFormat::F32)
+        .with_sample_rate(sampling_rate.unwrap())
+        .with_sample_format(SampleFormat::F32);
         // Note that the function below still tries alternative configs if the specified one fails.
         // If you need to only use the exact specified configuration,
         // then use DeviceSinkBuilder::open_sink() instead.
-        .open_stream();
+    let handle = h.open_stream();
     tracing::debug!(device=?handle);
     handle
 }
