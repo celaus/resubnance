@@ -143,7 +143,7 @@ fn open_audio_device(conf: &config::AudioSink) -> Result<MixerDeviceSink, Device
     let sampling_rate = NonZero::new(conf.sampling_rate); 
     tracing::debug!(sampling_rate=?sampling_rate, "from device");
    let h = handle_.unwrap()
-        .with_buffer_size(BufferSize::Fixed(conf.buffer_size))
+        .with_buffer_size(BufferSize::Default)
         .with_sample_rate(sampling_rate.unwrap())
         .with_sample_format(SampleFormat::F32);
         // Note that the function below still tries alternative configs if the specified one fails.
