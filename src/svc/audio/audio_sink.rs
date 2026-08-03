@@ -146,9 +146,9 @@ fn open_audio_device(conf: &config::AudioSink) -> Result<MixerDeviceSink, Device
         // Note that the function below still tries alternative configs if the specified one fails.
         // If you need to only use the exact specified configuration,
         // then use DeviceSinkBuilder::open_sink() instead.
-        .open_stream()?;
+        .open_stream();
     tracing::debug!(device=?handle);
-    Ok(handle)
+    handle
 }
 
 #[derive(Debug)]
