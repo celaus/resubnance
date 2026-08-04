@@ -145,7 +145,7 @@ fn open_audio_device(conf: &config::AudioSink) -> Result<MixerDeviceSink, Device
    let h = handle_.unwrap()
         .with_buffer_size(BufferSize::Default)
         .with_sample_rate(sampling_rate.unwrap())
-        .with_sample_format(SampleFormat::F32);
+        .with_sample_format(SampleFormat::F64);
         // Note that the function below still tries alternative configs if the specified one fails.
         // If you need to only use the exact specified configuration,
         // then use DeviceSinkBuilder::open_sink() instead.
