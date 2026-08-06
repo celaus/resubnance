@@ -64,6 +64,7 @@ http = "1.4"
 [patch.crates-io]
 # https://github.com/RustAudio/cpal/issues/1134 (not yet released to rodio)
 cpal = { git = "https://github.com/RustAudio/cpal" }
+alsa = { git = "https://github.com/roderickvd/alsa-rs", branch = "fix/htstamp-time64-overflow" }
 
 [dev-dependencies]
 tokio-tungstenite = "0.27"

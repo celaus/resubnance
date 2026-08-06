@@ -14,8 +14,7 @@ dependencies = [
 [[package]]
 name = "alsa"
 version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "812947049edcd670a82cd5c73c3661d2e58468577ba8489de58e1a73c04cbd5d"
+source = "git+https://github.com/roderickvd/alsa-rs?branch=fix%2Fhtstamp-time64-overflow#5e0c35dbfd56bcf8588932db1edd93fcb4a177b6"
 dependencies = [
  "alsa-sys",
  "bitflags 2.13.1",
