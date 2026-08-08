@@ -33,10 +33,8 @@ RUN cp ./target/release/resubnance-server /bin/resubnance-server
 # ################################################################################
 
 FROM alpine:3.24 AS final
-RUN apk add --no-cache libgcc alsa-lib  alsa-tools \
-    alsa-lib \
-    alsa-utils \
-    alsaconf 
+RUN apk add --no-cache libgcc \
+   libpulse
 
 RUN mkdir /resubnance
 # RUN printf "defaults.pcm.card 0\ndefaults.ctl.card 0" > /etc/asound.conf
@@ -50,6 +48,3 @@ EXPOSE 3000
 WORKDIR /resubnance
 # What the container should run when it is started.
 CMD ["resubnance-server"]
-
-# pipewire &
-# pipewire-media-session &
