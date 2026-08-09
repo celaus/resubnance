@@ -32,7 +32,7 @@ RUN cp ./target/release/resubnance-server /bin/resubnance-server
 # # We use dhi.io/static for the final stage because itâs a minimal Docker Hardened Image runtime (basically âjust # enough OS to run the binaryâ), which helps keep the image small and with a lower attack surface compared to a # # full Alpine/Debian runtime.
 # ################################################################################
 
-FROM alpine:3.24 AS final
+FROM alpine:3.23 AS final
 RUN apk add --no-cache libgcc \
    libpulse \
    strace
