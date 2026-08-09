@@ -48,4 +48,4 @@ COPY static /resubnance/static
 EXPOSE 3000
 WORKDIR /resubnance
 # What the container should run when it is started.
-CMD ["strace", "-f", "-e", "trace=signal,process", "resubnance-server"]
+CMD ["strace", "-f", "resubnance-server"]
