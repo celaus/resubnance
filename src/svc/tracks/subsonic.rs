@@ -45,7 +45,7 @@ pub struct SubsonicMusicSource {
 impl SubsonicMusicSource {
     pub fn new(config: &config::Subsonic) -> Result<Self, sunk::Error> {
         let raw = ReqwestClient::builder()
-            .connect_timeout(Duration::from_secs(30))
+            .connect_timeout(Duration::from_secs(300))
             .build();
         tracing::debug!(reqwest_client=?raw, "creating client");
         let reqclient = raw.unwrap();
