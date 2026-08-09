@@ -2,7 +2,7 @@
 # Create a stage for building the application.
 ################################################################################
 
-FROM alpine:edge AS build
+FROM alpine:3.24 AS build
 WORKDIR /app
 
 # Install host build dependencies.
