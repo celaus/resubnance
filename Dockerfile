@@ -34,7 +34,8 @@ RUN cp ./target/release/resubnance-server /bin/resubnance-server
 
 FROM alpine:3.24 AS final
 RUN apk add --no-cache libgcc \
-   libpulse
+   libpulse \
+   strace
 
 RUN mkdir /resubnance
 # RUN printf "defaults.pcm.card 0\ndefaults.ctl.card 0" > /etc/asound.conf
@@ -47,4 +48,4 @@ COPY static /resubnance/static
 EXPOSE 3000
 WORKDIR /resubnance
 # What the container should run when it is started.
-CMD ["resubnance-server"]
+CMD ["strace", "-f", "-e", "trace=signal,process", "resubnance-server"]

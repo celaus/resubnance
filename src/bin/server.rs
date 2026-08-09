@@ -55,8 +55,15 @@ use tokio::sync::broadcast;
 
 const CHANNEL_SIZE: usize = 20;
 
-#[tokio::main]
-async fn main() -> Result<(), SvcError> {
+fn main() -> Result<(), SvcError> {
+    tokio::runtime::Builder::new_multi_thread()
+        .thread_stack_size(8_000_000)
+        .enable_all()
+        .build()?
+        .block_on(async { start().await })
+}
+
+async fn start() -> Result<(), SvcError> {
     // install global subscriber configured based on RUST_LOG envvar.
     tracing_subscriber::fmt::init();
 
@@ -150,11 +157,11 @@ async fn main() -> Result<(), SvcError> {
                 music_source_factory: Arc::new(ws_api),
                 events_rx: Arc::new(q_state_events_rx),
             }),
+        )
+        .layer(
+            TraceLayer::new_for_http()
+                .make_span_with(DefaultMakeSpan::default().include_headers(true)),
         );
-    //     .layer(
-    //         TraceLayer::new_for_http()
-    //             .make_span_with(DefaultMakeSpan::default().include_headers(true)),
-    //     );
     let addr = TcpListener::bind(&config.server.url).await;
     tracing::debug!(addr=?addr, "🐕‍🦺 serving ...");
 

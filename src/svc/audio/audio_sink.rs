@@ -140,15 +140,16 @@ fn open_audio_device(conf: &config::AudioSink) -> Result<MixerDeviceSink, Device
     let default_device = rodio::cpal::default_host().default_output_device().unwrap();
     let handle_ = rodio::DeviceSinkBuilder::from_device(default_device);
     tracing::debug!(device=?handle_, "from device");
-    let sampling_rate = NonZero::new(conf.sampling_rate); 
+    let sampling_rate = NonZero::new(conf.sampling_rate);
     tracing::debug!(sampling_rate=?sampling_rate, "from device");
-   let h = handle_.unwrap()
+    let h = handle_
+        .unwrap()
         .with_buffer_size(BufferSize::Default)
         .with_sample_rate(sampling_rate.unwrap())
         .with_sample_format(SampleFormat::F64);
-        // Note that the function below still tries alternative configs if the specified one fails.
-        // If you need to only use the exact specified configuration,
-        // then use DeviceSinkBuilder::open_sink() instead.
+    // Note that the function below still tries alternative configs if the specified one fails.
+    // If you need to only use the exact specified configuration,
+    // then use DeviceSinkBuilder::open_sink() instead.
     let handle = h.open_stream();
     tracing::debug!(device=?handle);
     handle
