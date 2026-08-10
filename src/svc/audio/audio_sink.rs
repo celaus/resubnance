@@ -138,17 +138,21 @@ impl DeviceSinkManager {
 #[tracing::instrument(level = "info")]
 fn open_audio_device(conf: &config::AudioSink) -> Result<MixerDeviceSink, DeviceSinkError> {
     let default_device = rodio::cpal::default_host().default_output_device().unwrap();
-    let handle = rodio::DeviceSinkBuilder::from_device(default_device)
+    let handle_ = rodio::DeviceSinkBuilder::from_device(default_device);
+    tracing::debug!(device=?handle_, "from device");
+    let sampling_rate = NonZero::new(conf.sampling_rate);
+    tracing::debug!(sampling_rate=?sampling_rate, "from device");
+    let h = handle_
         .unwrap()
-        .with_buffer_size(BufferSize::Fixed(conf.buffer_size))
-        .with_sample_rate(NonZero::new(conf.sampling_rate).unwrap())
-        .with_sample_format(SampleFormat::F32)
-        // Note that the function below still tries alternative configs if the specified one fails.
-        // If you need to only use the exact specified configuration,
-        // then use DeviceSinkBuilder::open_sink() instead.
-        .open_stream()?;
+        .with_buffer_size(BufferSize::Default)
+        .with_sample_rate(sampling_rate.unwrap())
+        .with_sample_format(SampleFormat::F64);
+    // Note that the function below still tries alternative configs if the specified one fails.
+    // If you need to only use the exact specified configuration,
+    // then use DeviceSinkBuilder::open_sink() instead.
+    let handle = h.open_stream();
     tracing::debug!(device=?handle);
-    Ok(handle)
+    handle
 }
 
 #[derive(Debug)]
@@ -179,6 +183,8 @@ impl DefaultAudioSink {
         audio_events_tx: mpsc::Sender<CommandWithMeta<SinkEvent, QueueManagerCommandTx>>,
         device_mixer: Arc<DeviceSinkManager>,
     ) {
+        tracing::info!("starting audio service...");
+
         if let Err(e) = device_mixer.open_mixer() {
             tracing::error!(
                 msg = "Couldn't open audio device",
@@ -187,6 +193,7 @@ impl DefaultAudioSink {
             );
             return;
         }
+        tracing::debug!("awaiting commands ...");
         while let Some(cmd_and_meta) = command_channel.recv().await {
             tracing::debug!(msg="New command received", cmd=?cmd_and_meta);
             let cmd = cmd_and_meta.cmd;
@@ -281,7 +288,7 @@ impl DefaultAudioSink {
                         let audio_events_tx = audio_events_tx.clone();
                         let q_events_tx = q_events_tx.clone();
 
-                        let _ = tokio::task::spawn_blocking(move || {
+                        tokio::task::block_in_place(move || {
                             tracing::debug!(msg="Player thread started. Appending data", data=?src);
                             match decoder::Decoder::new(src) {
                                 Ok(data) => {
@@ -309,8 +316,7 @@ impl DefaultAudioSink {
                                     tracing::error!(error = ?e);
                                 }
                             }
-                        })
-                        .await;
+                        });
                     } else {
                         tracing::error!(
                             msg = "Player couldn't connect to the mixer",
@@ -333,6 +339,10 @@ impl DefaultAudioSink {
 }
 
 impl SingletonService for DefaultAudioSink {
+    fn name(&self) -> String {
+        "DefaultAudioSink".into()
+    }
+
     #[tracing::instrument(skip(self))]
     async fn run(self) {
         let audio_events_tx_ = self.audio_events_tx.clone();

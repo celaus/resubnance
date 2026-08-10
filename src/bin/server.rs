@@ -55,8 +55,15 @@ use tokio::sync::broadcast;
 
 const CHANNEL_SIZE: usize = 20;
 
-#[tokio::main]
-async fn main() -> Result<(), SvcError> {
+fn main() -> Result<(), SvcError> {
+    tokio::runtime::Builder::new_multi_thread()
+        .thread_stack_size(8_000_000)
+        .enable_all()
+        .build()?
+        .block_on(async { start().await })
+}
+
+async fn start() -> Result<(), SvcError> {
     // install global subscriber configured based on RUST_LOG envvar.
     tracing_subscriber::fmt::init();
 
@@ -64,10 +71,11 @@ async fn main() -> Result<(), SvcError> {
 
     let config: config::ResubnanceConfig = config::parse(Path::new("config.toml"))?;
     tracing::info!(
-        "🔉 Welcome to {}, v{}",
+        "🔉 Welcome to {}, v{}. Starting 🚀",
         env!("CARGO_PKG_NAME"),
         env!("CARGO_PKG_VERSION")
     );
+
     let source_svc_factory = SubsonicMusicSourceFactory::new(config.subsonic.clone());
     tracing::debug!(config=?config, "scanning library");
     // A test instance
@@ -77,23 +85,21 @@ async fn main() -> Result<(), SvcError> {
     let (player_events_tx, player_events_rx) = tokio::sync::mpsc::channel(CHANNEL_SIZE);
     let (queue_mgr_tx, queue_mgr_rx) = tokio::sync::mpsc::channel(CHANNEL_SIZE);
     let (q_state_events_tx, q_state_events_rx) = tokio::sync::broadcast::channel(CHANNEL_SIZE);
+    tracing::debug!("creating audio sink");
 
     let audio_conf = config.audio.clone();
-    let sink_svc = tokio::task::spawn_blocking(|| {
+    let sink_svc = tokio::task::block_in_place(|| {
         DefaultAudioSink::new(audio_conf, audio_sink_rx, player_events_tx)
-    })
-    .await
-    .unwrap();
-
+    });
+    tracing::debug!("creating queue manager");
     let dl = source_svc_factory.get_instance().await;
-    let queue_mgr_svc = tokio::task::spawn_blocking(|| {
+    let queue_mgr_svc = tokio::task::block_in_place(|| {
         QueueManagerService::new(player_events_rx, queue_mgr_rx, dl, q_state_events_tx)
-    })
-    .await
-    .unwrap();
+    });
 
     let (ext_tx, _) = broadcast::channel(20); //20 may be high or low?
     let mut supervisor = supervisor::ServiceSupervisor::new(ext_tx.clone());
+    tracing::debug!("creating & starting external services");
 
     for externals in config.additional.iter() {
         match externals {
@@ -110,11 +116,14 @@ async fn main() -> Result<(), SvcError> {
     supervisor.start(sink_svc).await;
     supervisor.start(queue_mgr_svc).await;
 
+    tracing::debug!("creating external services");
     let ws_api = WebSocketMessageHandler::new(
         source_svc_factory.clone().into(),
         queue_mgr_tx.clone(),
         audio_sink_tx.clone(),
     );
+
+    tracing::debug!("setting up web server");
 
     let webapp_state = WebAppState {
         config: Arc::new(config.clone()),
@@ -153,10 +162,21 @@ async fn main() -> Result<(), SvcError> {
             TraceLayer::new_for_http()
                 .make_span_with(DefaultMakeSpan::default().include_headers(true)),
         );
-    axum::serve(
-        TcpListener::bind(&config.server.url).await?,
+    let addr = TcpListener::bind(&config.server.url).await;
+    tracing::debug!(addr=?addr, "🐕‍🦺 serving ...");
+
+    // let srv = Router::new().route("/", get(handler));
+
+    let server_result = axum::serve(
+        addr?,
         srv.into_make_service_with_connect_info::<SocketAddr>(),
     )
-    .await?;
+    .into_future()
+    .await;
+    tracing::debug!(result=?server_result, "✅ web server exited. Good bye");
     Ok(())
+}
+
+async fn handler() -> axum::response::Html<&'static str> {
+    axum::response::Html("<h1>Hello, World!</h1>")
 }

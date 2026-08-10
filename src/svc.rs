@@ -99,6 +99,7 @@ pub enum AudioServiceResponse {
 }
 
 pub trait SingletonService {
+    fn name(&self) -> String;
     fn run(self) -> impl std::future::Future<Output = ()> + Send;
 }
 
