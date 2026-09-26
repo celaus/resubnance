@@ -84,12 +84,7 @@ pub async fn cache_delete_by_id(
     Path(params): Path<Params>,
     State(state): State<WebAppState>,
 ) -> Response {
-    let cache_dir = state
-        .config
-        .subsonic
-        .caching_strategy
-        .cache_dir()
-        .unwrap_or(env::temp_dir());
+    let cache_dir = state.cache_dir_or_env_tempdir();
     let id = params.id;
     tracing::debug!(id_to_delete = id, "deleting cached file with id");
     match tokio::task::block_in_place(move || find_all_cached_files(cache_dir)) {
@@ -117,12 +112,7 @@ pub async fn cache_delete_by_id(
 }
 
 pub async fn cache_delete_all(State(state): State<WebAppState>) -> Response {
-    let cache_dir = state
-        .config
-        .subsonic
-        .caching_strategy
-        .cache_dir()
-        .unwrap_or(env::temp_dir());
+    let cache_dir = state.cache_dir_or_env_tempdir();
     match tokio::task::block_in_place(move || find_all_cached_files(cache_dir)) {
         Ok(all_cached_mp3s) => {
             for mp3 in all_cached_mp3s {
@@ -142,12 +132,8 @@ pub async fn cache_delete_all(State(state): State<WebAppState>) -> Response {
 }
 
 pub async fn cache(State(state): State<WebAppState>) -> Response {
+    let cache_dir = state.cache_dir_or_env_tempdir();
     let config = state.config;
-    let cache_dir = config
-        .subsonic
-        .caching_strategy
-        .cache_dir()
-        .unwrap_or(env::temp_dir());
 
     match build_cached_items(cache_dir.clone(), config.subsonic.clone()).await {
         Ok(cached_items) => {
@@ -205,9 +191,7 @@ async fn build_cached_items(
 ) -> Result<BTreeMap<String, CachedItemMetadata>, io::Error> {
     let svc = SubsonicMusicSourceFactory::new(config).get_instance().await;
     let mut map = BTreeMap::new();
-    let all_cached_mp3s = tokio::task::spawn_blocking(move || find_all_cached_files(cache_dir))
-        .await
-        .unwrap()?;
+    let all_cached_mp3s = tokio::task::block_in_place(move || find_all_cached_files(cache_dir))?;
     let ids: Vec<_> = all_cached_mp3s
         .iter()
         .filter_map(|f| f.file_stem())

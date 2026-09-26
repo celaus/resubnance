@@ -48,6 +48,10 @@ impl CoverImageDisplayService {
 }
 
 impl SingletonService for CoverImageDisplayService {
+    fn name(&self) -> String {
+        "CoverImageDisplayService".into()
+    }
+
     #[tracing::instrument(skip(self))]
     async fn run(mut self) {
         while let Ok(cmd_and_meta) = self.command_channel.recv().await {

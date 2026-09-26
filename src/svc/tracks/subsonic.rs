@@ -44,10 +44,11 @@ pub struct SubsonicMusicSource {
 
 impl SubsonicMusicSource {
     pub fn new(config: &config::Subsonic) -> Result<Self, sunk::Error> {
-        let reqclient = ReqwestClient::builder()
-            .connect_timeout(Duration::from_secs(30))
-            .build()
-            .unwrap();
+        let raw = ReqwestClient::builder()
+            .connect_timeout(Duration::from_secs(300))
+            .build();
+        tracing::debug!(reqwest_client=?raw, "creating client");
+        let reqclient = raw.unwrap();
         let client = sunk::Client::new(&config.url, &config.username, &config.password)?
             .with_client(reqclient);
         Ok(SubsonicMusicSource {
@@ -147,28 +148,17 @@ impl TracklistSourceProvider for SubsonicMusicSource {
 
     #[tracing::instrument(level = "debug")]
     async fn lookup(&self, ids: Vec<String>) -> Vec<Result<MetaData, SvcError>> {
-        let handles: Vec<_> = ids
-            .into_iter()
+        ids.into_iter()
             .map(Arc::new)
             .map(|id| {
                 let client = self.client.clone();
-                tokio::task::spawn_blocking(move || {
+                tokio::task::block_in_place(move || {
                     Song::get(&client, id.as_str())
                         .map(|s| MetaData::from(&s))
-                        .map_err(TrackSourceError::from)
+                        .map_err(|e| SvcError::Source(TrackSourceError::from(e)))
                 })
             })
-            .collect();
-
-        let mut results: Vec<Result<MetaData, SvcError>> = vec![];
-        for h in handles {
-            results.push(match h.await {
-                Ok(ref d) if let Ok(m) = d => Ok(m.clone()),
-                Err(e) => Err(SvcError::from(e)),
-                Ok(_) => Err(SvcError::Internal()),
-            });
-        }
-        results
+            .collect()
     }
 }
 
@@ -211,7 +201,15 @@ impl SubsonicMusicSourceFactory {
 
 impl ServiceFactory for SubsonicMusicSourceFactory {
     type Service = SubsonicMusicSource;
+    #[tracing::instrument(skip_all, fields(name=self.config.url))]
     async fn get_instance(&self) -> Self::Service {
-        tokio::task::block_in_place(|| SubsonicMusicSource::new(&self.config).unwrap())
+        let config = self.config.clone();
+        tokio::task::spawn_blocking(move || {
+            let src = SubsonicMusicSource::new(&config);
+            tracing::debug!(source=?src, "creating subsonic music source");
+            src.unwrap()
+        })
+        .await
+        .unwrap()
     }
 }

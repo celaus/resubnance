@@ -2,7 +2,7 @@
 # Create a stage for building the application.
 ################################################################################
 
-FROM alpine:edge AS build
+FROM alpine:3.24 AS build
 WORKDIR /app
 
 # Install host build dependencies.
@@ -50,6 +50,3 @@ EXPOSE 3000
 WORKDIR /resubnance
 # What the container should run when it is started.
 CMD ["resubnance-server"]
-
-# pipewire &
-# pipewire-media-session &
