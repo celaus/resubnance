@@ -25,6 +25,7 @@ use rodio::{
 };
 use tokio::sync::mpsc;
 use tokio::time::sleep;
+use tracing::instrument;
 
 use crate::svc::AudioServiceResponse;
 use crate::svc::error::SvcError;
@@ -100,6 +101,7 @@ impl DeviceSinkManager {
         }
     }
 
+    #[instrument(skip(self))]
     pub fn drop_player(&self) {
         let old_ = self.player.swap(None);
         if let Some(old) = old_.and_then(|o| Arc::try_unwrap(o).ok()) {
@@ -144,7 +146,7 @@ fn open_audio_device(conf: &config::AudioSink) -> Result<MixerDeviceSink, Device
     tracing::debug!(sampling_rate=?sampling_rate, "from device");
     let h = handle_
         .unwrap()
-        .with_buffer_size(BufferSize::Default)
+        .with_buffer_size(BufferSize::Fixed(conf.buffer_size))
         .with_sample_rate(sampling_rate.unwrap())
         .with_sample_format(SampleFormat::F64);
     // Note that the function below still tries alternative configs if the specified one fails.
