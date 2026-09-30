@@ -1,4 +1,7 @@
-use std::sync::Arc;
+use std::{
+    fmt,
+    sync::Arc,
+};
 
 use axum::response::Response;
 
@@ -90,11 +93,14 @@ pub struct WsResponse {
 }
 
 impl WsResponse {
-    pub fn error(e: SvcError) -> Self {
+    #[tracing::instrument(level = "warn")]
+    pub fn error<S: fmt::Debug>(src: S, e: SvcError) -> Self {
+        tracing::debug!(?src, error=?e, "returning error");
         e.into()
     }
 
-    pub fn with_error_msg<S: Into<String>>(e: S) -> Self {
+    #[tracing::instrument(level = "warn")]
+    pub fn with_error_msg<S: Into<String> + fmt::Debug>(e: S) -> Self {
         Self {
             error: Some(e.into()),
             ..Default::default()
