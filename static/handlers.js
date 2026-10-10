@@ -105,7 +105,6 @@ function handleWebSocketMessage(response) {
             playerState = data.c;
             isPlaying = !playerState.is_paused
                 && playerState.last_command !== "stop";
-            console.log("isPlaying?", isPlaying);
             updateVolumeUI(playerState.volume * 100);
             updatePlayPauseUI();
             break;
@@ -116,11 +115,6 @@ function handleWebSocketMessage(response) {
 
 /* ── Player controls ── */
 async function stopPlayback() {
-    const label = document.getElementById("playerStateLabel");
-    label.textContent = "STOPPED";
-    label.style.color = "var(--neon-pink)";
-    label.style.textShadow = "var(--glow-pink)";
-
     sendMessage({
         t: "player",
         c: {
@@ -150,21 +144,15 @@ async function togglePlayPause() {
 
 function updatePlayPauseUI() {
     const btn = document.getElementById("playPauseBtn");
-    const label = document.getElementById("playerStateLabel");
-    console.log("updating UI: isPlaying?", isPlaying);
     if (isPlaying) {
         btn.innerHTML = "&#9646;&#9646;"; // pause bars
         btn.classList.add("active");
-        label.textContent = "PLAYING";
-        label.style.color = "var(--neon-green)";
-        label.style.textShadow = "var(--glow-green)";
     } else {
         btn.innerHTML = "&#9654;"; // play triangle
         btn.classList.remove("active");
-        label.textContent = "PAUSED";
-        label.style.color = "var(--text-dim)";
-        label.style.textShadow = "none";
     }
+    document.body.classList.toggle("is-playing", isPlaying);
+    updateProgressUI();
 }
 
 async function skipNext() {
@@ -211,6 +199,40 @@ function updateVolumeUI(vol) {
     currentVolume = vol;
 }
 
+/* ── Progress (dummy — the server does not report playback position yet) ── */
+let dummyPosition = 0;
+let dummyTotal = 0;
+let lastTrackId = null;
+
+function formatTime(seconds) {
+    if (typeof seconds !== "number" || !isFinite(seconds) || seconds < 0) {
+        return "–:––";
+    }
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+function updateProgressUI() {
+    const fill = document.getElementById("progressFill");
+    if (!fill) return;
+    fill.style.width =
+        dummyTotal > 0
+            ? `${Math.min(100, (dummyPosition / dummyTotal) * 100)}%`
+            : "0%";
+    document.getElementById("elapsedTime").textContent =
+        formatTime(dummyPosition);
+    document.getElementById("totalTime").textContent =
+        formatTime(dummyTotal);
+}
+
+setInterval(() => {
+    if (isPlaying && dummyTotal > 0 && dummyPosition < dummyTotal) {
+        dummyPosition = Math.min(dummyPosition + 1, dummyTotal);
+        updateProgressUI();
+    }
+}, 1000);
+
 /* ── Search ── */
 async function doSearch() {
     const query = document
@@ -224,7 +246,7 @@ async function doSearch() {
     const btn = document.getElementById("searchBtn");
     const resultsList = document.getElementById("searchResults");
     btn.disabled = true;
-    btn.textContent = "SEARCH";
+    btn.textContent = "Search…";
     resultsList.innerHTML =
         '<li class="status-msg"><span class="spinner"></span> Searching...</li>';
 
@@ -234,12 +256,15 @@ async function doSearch() {
 function formatDuration(seconds) {
     if (!seconds) return "";
     const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m}:${String(s).padStart(2, "0")} minutes`;
+    const s = Math.floor(seconds % 60);
+    return `${m}:${String(s).padStart(2, "0")}`;
 }
 
 function renderSearchResults(tracks) {
     const list = document.getElementById("searchResults");
+    const btn = document.getElementById("searchBtn");
+    btn.disabled = false;
+    btn.textContent = "Search";
     if (!tracks.length) {
         list.innerHTML =
             '<li class="status-msg">No tracks found.</li>';
@@ -254,7 +279,7 @@ function renderSearchResults(tracks) {
                     ${escHtml(track.title)}
                 </span>
                 <span class="result-meta">${escHtml(track.artist)} ${track.duration ? "· " + formatDuration(track.duration) : ""}</span>
-                <span class="result-added" id="added-${escHtml(track.id)}">&#10003; ADDED</span>
+                <span class="result-added" id="added-${escHtml(track.id)}">added</span>
             `;
         li.querySelector(".result-name").addEventListener(
             "click",
@@ -335,7 +360,7 @@ function renderPlaylists(data) {
                     return `<div class="playlist-track">${escHtml(label)}</div>`;
                 })
                 .join("")
-            : '<div class="playlist-track" style="color:var(--text-dim); font-style:italic;">empty playlist</div>';
+            : '<div class="playlist-track empty">empty playlist</div>';
 
         li.innerHTML = `
                 <div class="playlist-header" onclick="togglePlaylist(this.parentElement)">
@@ -354,6 +379,13 @@ function renderNowPlaying(track) {
         track.title || "Unknown";
     document.getElementById("playerArtist").textContent =
         track.artist || "";
+    if (track.id !== lastTrackId) {
+        lastTrackId = track.id;
+        dummyPosition = 0;
+    }
+    const duration = Number(track.duration);
+    dummyTotal = isFinite(duration) && duration > 0 ? duration : 210;
+    updateProgressUI();
 }
 
 function renderQueue(queue) {
@@ -369,24 +401,20 @@ function renderQueue(queue) {
             const label = label_.length > 100 ? label_.substring(0, 97) + "..." : label_;
 
             return `<div class="queue-track ${isPlaying ? "playing" : ""}" draggable="true" data-idx="${idx}" data-id="${escHtml(t.id)}">
-                        <span class="drag-handle">&#9776;</span>
-                        <span>${escHtml(label)}</span>
-                        ${isDownloading ? '<span class="spinner"></span>' : ""}
+                        <span class="drag-handle">&#8942;</span>
+                        <span class="eq"><i></i><i></i><i></i></span>
+                        <span class="queue-label">${escHtml(label)}</span>
+                        ${isDownloading ? '<span class="spinner spinner-sm"></span>' : ""}
                     </div>`;
         })
         .join("") : `<p class="status-msg">Queue is empty.</p>`;
 
     panel.innerHTML = `
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <h2 class="panel-title" style="color: var(--neon-yellow); text-shadow: var(--glow-yellow);">
-                        &#9889; Queue (${tracks.length})
-                    </h2>
-                    <button class="btn btn-pink" onclick="clearQueue()"
-                        style="font-size: 0.55rem; padding: 0.3rem 0.6rem;">
-                        &#128465; CLEAR
-                    </button>
+                <div class="queue-header">
+                    <h2 class="panel-title">Queue${tracks.length ? ` (${tracks.length})` : ""}</h2>
+                    <button class="btn btn-sm" onclick="clearQueue()">Clear</button>
                 </div>
-                <div id="queueTracks" style="display: flex; flex-direction: column; gap: 0.4rem; flex: 1; overflow-y: auto; max-height: 300px;">
+                <div id="queueTracks" class="queue-tracks">
                     ${tracksHtml}
                 </div>
             `;

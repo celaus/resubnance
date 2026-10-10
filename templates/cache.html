@@ -4,103 +4,115 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{{name}} — Stats</title>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet" />
+    <title>{{name}} — Cache</title>
     <link rel="icon" type="image/svg+xml" href="{{baseUrl}}/favicon.svg" />
     <link rel="stylesheet" type="text/css" href="/style.css" />
     <style>
         .stats-panel {
             max-width: 1200px;
             width: 100%;
-            margin: 1rem auto;
-            padding: 1rem;
+            margin: 1.25rem auto;
+            padding: 1.25rem 1.5rem;
         }
 
         .stats-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 0.6rem;
-            letter-spacing: 0.05em;
+            font-size: 0.72rem;
         }
 
         .stats-table th {
             text-align: left;
             padding: 0.5rem 0.6rem;
-            color: var(--neon-cyan);
-            text-shadow: var(--glow-cyan);
-            border-bottom: 1px solid var(--neon-cyan);
-            font-weight: 700;
+            color: var(--dim);
+            font-weight: 600;
             text-transform: uppercase;
-            letter-spacing: 0.15em;
+            letter-spacing: 0.1em;
+            font-size: 0.62rem;
+            border-bottom: 1px solid var(--line);
         }
 
         .stats-table td {
-            padding: 0.45rem 0.6rem;
-            border-bottom: 1px solid var(--panel-border);
+            padding: 0.5rem 0.6rem;
+            border-bottom: 1px solid var(--line-soft);
             vertical-align: middle;
         }
 
-        .stats-table tr:hover td {
-            background: rgba(0, 245, 255, 0.04);
+        .stats-table tbody tr:not(.total-row):hover td {
+            background: var(--panel-hover);
         }
 
         .stats-table .num {
             text-align: right;
             font-variant-numeric: tabular-nums;
+            color: var(--dim);
+        }
+
+        .stats-table .id-cell {
+            color: var(--faint);
+            font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+            font-size: 0.62rem;
+        }
+
+        .stats-table .track-artist {
+            color: var(--dim);
+        }
+
+        .stats-table .track-title {
+            color: var(--text);
         }
 
         .stats-table .total-row td {
-            border-top: 2px solid var(--neon-yellow);
+            border-top: 1px solid var(--line);
             border-bottom: none;
-            font-weight: 700;
-            color: var(--neon-yellow);
-            text-shadow: 0 0 6px rgba(255, 230, 0, 0.4);
             padding-top: 0.7rem;
         }
 
         .stats-table .total-row .total-label {
             text-transform: uppercase;
-            letter-spacing: 0.2em;
+            letter-spacing: 0.12em;
+            font-size: 0.62rem;
+            color: var(--dim);
+        }
+
+        .stats-table .total-row .num {
+            color: var(--text);
         }
 
         .btn-del {
-            font-family: "Orbitron", monospace;
-            font-weight: 700;
-            font-size: 0.55rem;
-            letter-spacing: 0.1em;
-            padding: 0.3rem 0.6rem;
-            border: 1px solid var(--neon-pink);
-            border-radius: 3px;
-            cursor: pointer;
-            background: transparent;
-            color: var(--neon-pink);
+            font-family: inherit;
+            background: none;
+            border: none;
+            font-size: 0.62rem;
+            letter-spacing: 0.08em;
             text-transform: uppercase;
-            transition: box-shadow 0.15s, background 0.15s;
+            padding: 0.25rem 0.5rem;
+            cursor: pointer;
+            color: var(--faint);
+            transition: color 0.15s;
         }
 
         .btn-del:hover {
-            background: rgba(255, 45, 120, 0.12);
-            box-shadow: var(--glow-pink);
+            color: var(--danger);
         }
 
         .btn-del-all {
-            font-family: "Orbitron", monospace;
-            font-weight: 700;
-            font-size: 0.65rem;
-            letter-spacing: 0.15em;
-            padding: 0.5rem 1.2rem;
-            border: 1px solid var(--neon-pink);
-            border-radius: 3px;
-            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.7rem;
+            font-weight: 500;
+            padding: 0.45rem 0.9rem;
+            border: 1px solid var(--line);
+            border-radius: 8px;
             background: transparent;
-            color: var(--neon-pink);
-            text-transform: uppercase;
-            transition: box-shadow 0.15s, background 0.15s;
+            color: var(--dim);
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s, color 0.15s;
         }
 
         .btn-del-all:hover {
-            background: rgba(255, 45, 120, 0.15);
-            box-shadow: var(--glow-pink);
+            color: var(--danger);
+            border-color: var(--danger);
+            background: rgba(224, 85, 74, 0.06);
         }
 
         .toolbar {
@@ -109,45 +121,35 @@
             margin-bottom: 1rem;
         }
 
-        .stats-table .track-artist {
-            color: var(--neon-green);
-        }
-
-        .stats-table .track-title {
-            color: var(--neon-yellow);
-        }
-
         .extra-info {
-            padding-bottom: 1rem;
-            color: var(--text-dim);
-            font-size: 0.7rem;
-            letter-spacing: 0.2em;
+            padding-bottom: 0.5rem;
+            color: var(--faint);
+            font-size: 0.68rem;
         }
 
         .empty-msg {
             text-align: center;
             padding: 3rem 1rem;
-            color: var(--text-dim);
-            font-size: 0.7rem;
-            letter-spacing: 0.2em;
-            text-transform: uppercase;
+            color: var(--faint);
+            font-size: 0.75rem;
+            letter-spacing: 0.08em;
         }
     </style>
 </head>
 
 <body>
     <header>
-        <a href="/">
-            <h1>&#9654;{{name}}</h1>
-        </a>
-        <p class="subtitle">Cached Tracks</p>
-        <p class="version">{{version}}</p>
+        <a class="wordmark" href="/"><span class="wordmark-logo">&#9654;</span>{{name}}</a>
+        <nav class="header-nav">
+            <span class="page-label">cached tracks</span>
+            <span class="version">{{version}}</span>
+        </nav>
     </header>
 
     <main class="stats-panel panel">
         <p class="extra-info">Cache directory: {{cache_dir}}</p>
         <div class="toolbar">
-            <button class="btn-del-all" onclick="deleteAll()">&#128465; Delete All</button>
+            <button class="btn-del-all" onclick="deleteAll()">Delete all</button>
         </div>
 
         {% if cache | length == 0 %}
@@ -169,13 +171,13 @@
                 {% for id, track in cache %}
                 {% set_global total_size = total_size + track.size %}
                 <tr>
-                    <td style="color:var(--text-dim);font-size:0.55rem;font-family:monospace">{{ id }}</td>
+                    <td class="id-cell">{{ id }}</td>
                     <td class="track-artist">{{ track.artist }}</td>
                     <td class="track-title">{{ track.title }}</td>
                     <td class="num">{{ track.size | filesizeformat }}</td>
                     <td class="num">{{ track.duration / 60 | round(method="floor") | int }}:{{ track.duration % 60 | int
                         | with_leading_zeros }} </td>
-                    <td><button class="btn-del" data-id="{{ id }}" onclick="deleteTrack('{{ id }}')">&#128465;</button>
+                    <td><button class="btn-del" data-id="{{ id }}" onclick="deleteTrack('{{ id }}')">Delete</button>
                     </td>
                 </tr>
                 {% endfor %}
