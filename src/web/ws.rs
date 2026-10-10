@@ -30,6 +30,7 @@ use futures::{
     SinkExt,
     StreamExt,
 };
+use tracing::Instrument;
 
 use std::{
     fmt,
@@ -86,7 +87,7 @@ where
             Some(response) => WsResponse::from(response),
             None => {
                 tracing::error!("Sender dropped?");
-                WsResponse::error(SvcError::Internal())
+                WsResponse::error("send_to_queue", SvcError::Internal())
             }
         }
     }
@@ -99,11 +100,12 @@ where
             Some(response) => WsResponse::from(response),
             None => {
                 tracing::error!("Sender dropped?");
-                WsResponse::error(SvcError::Internal())
+                WsResponse::error("send_to_backend", SvcError::Internal())
             }
         }
     }
 
+    #[tracing::instrument(skip_all, fields(?msg))]
     async fn handle(self, msg: WsRequest, tx: mpsc::Sender<WsResponseInternal>) {
         let src_svc = self.sources.get_instance().await;
         let response = match msg.rq {
@@ -139,7 +141,7 @@ where
                             ))
                             .await
                         }
-                        Err(e) => WsResponse::error(e),
+                        Err(e) => WsResponse::error("meta data lookup failed", e),
                     }
                 }
                 Queue::Get => {
@@ -147,14 +149,22 @@ where
                         .await
                 }
             },
-            WsControlRq::Search(query) => match src_svc.search(query).await {
+            WsControlRq::Search(query) => match src_svc
+                .search(query)
+                .instrument(tracing::debug_span!("search"))
+                .await
+            {
                 Ok(result) => {
                     let tracks = result.into_iter().collect();
                     WsResponse::from(WsControlRp::SearchResults(tracks))
                 }
-                Err(e) => WsResponse::error(e),
+                Err(e) => WsResponse::error("search failed", e),
             },
-            WsControlRq::Playlists => match src_svc.playlists().await {
+            WsControlRq::Playlists => match src_svc
+                .playlists()
+                .instrument(tracing::debug_span!("playlists"))
+                .await
+            {
                 Ok(playlists) => WsResponse::from(WsControlRp::Playlists(
                     playlists
                         .into_iter()
@@ -164,10 +174,11 @@ where
                         })
                         .collect::<Vec<_>>(),
                 )),
-                Err(e) => WsResponse::error(e),
+                Err(e) => WsResponse::error("playlists failed", e),
             },
             WsControlRq::Unknown => WsResponse::with_error_msg("Unknown request"),
         };
+        tracing::debug!(?response, "responsing to client");
         let _ = tx.send(WsResponseInternal::Data(response)).await;
     }
 }
@@ -189,12 +200,12 @@ pub async fn ws_control(
             loop {
                 if let Some(response) = outgoing_rx.recv().await {
                     match response {
-                        WsResponseInternal::Data(response) =>{
+                        WsResponseInternal::Data(response) => {
                             if let Ok(ws_response) = serde_json::to_string(&response) {
-                        let _ = response_stream.send(Message::Text(ws_response.into())).await;
-                    } else {
-                        tracing::warn!(msg="Couldn't serialize response", response=?response);
-                    }
+                                let _ = response_stream.send(Message::Text(ws_response.into())).await;
+                            } else {
+                                tracing::warn!(msg="Couldn't serialize response", response=?response);
+                            }
                         },
                         WsResponseInternal::Pong => {let _ = response_stream.send(Message::Pong(vec![].into())).await;},
                         WsResponseInternal::Close => {let _ = response_stream.send(Message::Close(None)).await;}

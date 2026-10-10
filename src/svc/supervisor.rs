@@ -6,7 +6,6 @@ use tracing::{
 
 use crate::svc::{
     SingletonService,
-    error::SvcError,
     ext::{
         ExternalServiceCommandRx,
         ExternalServiceCommandTx,
