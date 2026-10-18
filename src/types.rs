@@ -222,6 +222,9 @@ pub struct MetaData {
     pub id: TrackId,
     pub title: String,
     pub artist: String,
+    /// URL of the cover
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cover_180: Option<String>,
     /// Duration of the track in seconds.
     pub duration: u64,
     /// Elapsed playback time in seconds.

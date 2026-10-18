@@ -222,7 +222,6 @@ pub async fn ws_control(
             // "Welcome" messages
             Arc::unwrap_or_clone(controls.clone()).handle(WsRequest { rq: WsControlRq::Player(Player::Get) }, tx.clone()).await;
             Arc::unwrap_or_clone(controls.clone()).handle(WsRequest { rq: WsControlRq::Queue(Queue::Get) }, tx.clone()).await;
-            Arc::unwrap_or_clone(controls.clone()).handle(WsRequest { rq: WsControlRq::Playlists }, tx.clone()).await;
 
             while let Some(Ok(msg)) = rx.next().await {
                     let handler = Arc::unwrap_or_clone(controls.clone());

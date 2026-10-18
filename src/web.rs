@@ -1,8 +1,16 @@
-use std::{env, fs, path::PathBuf, sync::Arc};
+use std::{
+    env,
+    fs,
+    path::PathBuf,
+    sync::Arc,
+};
 
 use crate::{
     config::ResubnanceConfig,
-    svc::{ServiceEventsRx, tracks::subsonic::SubsonicMusicSourceFactory},
+    svc::{
+        ServiceEventsRx,
+        tracks::subsonic::SubsonicMusicSourceFactory,
+    },
     types::QueueState,
     web::ws::WebSocketMessageHandler,
 };

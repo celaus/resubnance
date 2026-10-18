@@ -225,6 +225,26 @@ function updateProgressUI() {
     if (total) total.textContent = formatTime(dummyTotal);
 }
 
+function updateCoverUrl(track) {
+    console.log("hello", track, Object.hasOwn(track, "cover_180"));
+    const cover_art_elem = document.getElementById("cover-art");   
+    if (Object.hasOwn(track, "cover_180")) {
+        console.log("hello2", cover_art_elem);
+        cover_art_elem.innerHTML = `<img src="${track.cover_180}" alt="cover art"/>`;
+    } else {
+        cover_art_elem.innerHTML = `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="coverGradient" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0" stop-color="#232323" />
+                            <stop offset="1" stop-color="#0f0f0f" />
+                        </linearGradient>
+                    </defs>
+                    <rect width="100" height="100" fill="url(#coverGradient)" />
+                    <path d="M70 22v38a11 11 0 1 1-4-8.6V31l-24 6v32a11 11 0 1 1-4-8.6V27z" fill="#1ed760" opacity="0.85" />
+                </svg>`;
+    }
+}
+
 intervalTask = setInterval(() => {
     if (isPlaying && dummyTotal > 0 && dummyPosition < dummyTotal) {
         dummyPosition = Math.min(dummyPosition + 1, dummyTotal);
@@ -329,6 +349,7 @@ function renderNowPlaying(track) {
     const duration = Number(track.duration);
     dummyTotal = isFinite(duration) && duration > 0 ? duration : 210;
     updateProgressUI();
+    updateCoverUrl(track);
 }
 
 function renderQueue(queue) {

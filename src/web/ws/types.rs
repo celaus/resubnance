@@ -226,6 +226,7 @@ pub fn print_all_possible_messages() {
                     id: uuid::Uuid::new_v4().to_string(),
                     mime: MUSIC_FORMAT_EXT.into(),
                     elapsed: 10,
+                    cover_180: None,
                 }],
             }])),
             error: None,
@@ -238,6 +239,7 @@ pub fn print_all_possible_messages() {
                 id: uuid::Uuid::new_v4().to_string(),
                 mime: MUSIC_FORMAT_EXT.into(),
                 elapsed: 10,
+                cover_180: None,
             }])),
             error: None,
         },
@@ -253,6 +255,7 @@ pub fn print_all_possible_messages() {
                             id: uuid::Uuid::new_v4().to_string(),
                             mime: MUSIC_FORMAT_EXT.into(),
                             elapsed: 10,
+                            cover_180: None,
                         }
                         .into(),
                     ],

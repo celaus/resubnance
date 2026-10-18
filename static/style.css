@@ -440,6 +440,7 @@ body.is-playing .queue-track.playing .eq i {
     aspect-ratio: 1 / 1;
     overflow: hidden;
     box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5);
+    align-content: center;
 }
 
 .player-cover svg {
