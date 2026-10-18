@@ -30,6 +30,7 @@ use crate::{
 };
 use reqwest::blocking::Client as ReqwestClient;
 use sunk::{
+    Media,
     collections::playlist::get_playlists,
     search,
     song::Song,
@@ -153,8 +154,10 @@ impl TracklistSourceProvider for SubsonicMusicSource {
             .map(|id| {
                 let client = self.client.clone();
                 tokio::task::block_in_place(move || {
-                    Song::get(&client, id.as_str())
-                        .map(|s| MetaData::from(&s))
+                    let song = Song::get(&client, id.as_str());
+                    let cover_url: Result<String, _> =
+                        song.iter().map(|s| s.cover_art_url(&client, 180)).collect();
+                    song.map(|s| MetaData::from((&s, cover_url.ok())))
                         .map_err(|e| SvcError::Source(TrackSourceError::from(e)))
                 })
             })
@@ -184,6 +187,23 @@ impl From<&Song> for MetaData {
             id: value.id.to_string(),
             mime: value.content_type.to_string(),
             elapsed: 0,
+            cover_180: None,
+        }
+    }
+}
+
+impl From<(&Song, Option<String>)> for MetaData {
+    fn from(s: (&Song, Option<String>)) -> Self {
+        let value = s.0;
+        let cover_url = s.1;
+        MetaData {
+            title: value.title.clone(),
+            artist: value.artist.clone().unwrap_or("unknown".to_string()),
+            duration: value.duration.unwrap_or_default(),
+            id: value.id.to_string(),
+            mime: value.content_type.to_string(),
+            elapsed: 0,
+            cover_180: cover_url,
         }
     }
 }

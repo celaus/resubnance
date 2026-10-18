@@ -1,11 +1,9 @@
 /* ── State ── */
 const WS_URL = window.WS_URL;
 
-
 let ws;
 let isPlaying = false;
-let currentVolume = 100;
-let queueState = {};
+let queueState = { meta: [], currently_playing_position: null };
 let playerState = {};
 let intervalTask;
 
@@ -15,7 +13,6 @@ function connectWebSocket() {
     ws.onopen = () => {
         console.info("WebSocket connected.");
         showToast("Connected to audio service.", "success");
-        // Request initial state upon connection
     };
 
     ws.onmessage = (event) => {
@@ -41,8 +38,8 @@ function connectWebSocket() {
 
 function sendMessage(message) {
     if (ws && ws.readyState === WebSocket.OPEN) {
-        console.info(JSON.stringify({ rq: message }));
         const msg = JSON.stringify({ rq: message });
+        console.info(msg);
         ws.send(msg);
     } else {
         e(`Connection error: Cannot send ${JSON.stringify(message)}`);
@@ -76,15 +73,15 @@ function handleWebSocketMessage(response) {
         return;
     } else {
         if (!data && !err) {
-            console.error(`Received odd response: ${response}`);
+            console.error(`Received odd response: ${JSON.stringify(response)}`);
         }
     }
 
     switch (data.t) {
         case "queuestate":
             queueState = data.c || {};
-            const currentTrack = queueState.meta &&
-                queueState.meta[
+            if (!Array.isArray(queueState.meta)) queueState.meta = [];
+            const currentTrack = queueState.meta[
                 queueState.currently_playing_position
                 ];
             if (currentTrack != undefined) {
@@ -95,9 +92,6 @@ function handleWebSocketMessage(response) {
             updatePlayPauseUI();
             renderQueue(queueState);
             break;
-        case "playlists":
-            renderPlaylists(data.c);
-            break;
         case "searchresults":
             renderSearchResults(data.c || []);
             break;
@@ -105,7 +99,6 @@ function handleWebSocketMessage(response) {
             playerState = data.c;
             isPlaying = !playerState.is_paused
                 && playerState.last_command !== "stop";
-            console.log("isPlaying?", isPlaying);
             updateVolumeUI(playerState.volume * 100);
             updatePlayPauseUI();
             break;
@@ -116,11 +109,6 @@ function handleWebSocketMessage(response) {
 
 /* ── Player controls ── */
 async function stopPlayback() {
-    const label = document.getElementById("playerStateLabel");
-    label.textContent = "STOPPED";
-    label.style.color = "var(--neon-pink)";
-    label.style.textShadow = "var(--glow-pink)";
-
     sendMessage({
         t: "player",
         c: {
@@ -133,7 +121,6 @@ async function stopPlayback() {
     });
 }
 
-/* ── Player controls ── */
 async function togglePlayPause() {
     const command = isPlaying ? "pause" : "play";
     sendMessage({
@@ -148,23 +135,24 @@ async function togglePlayPause() {
     });
 }
 
+const PLAY_ICON =
+    '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>';
+const PAUSE_ICON =
+    '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 5h4v14H6zM14 5h4v14h-4z" /></svg>';
+
 function updatePlayPauseUI() {
     const btn = document.getElementById("playPauseBtn");
-    const label = document.getElementById("playerStateLabel");
-    console.log("updating UI: isPlaying?", isPlaying);
     if (isPlaying) {
-        btn.innerHTML = "&#9646;&#9646;"; // pause bars
+        btn.innerHTML = PAUSE_ICON;
+        btn.setAttribute("aria-label", "Pause");
         btn.classList.add("active");
-        label.textContent = "PLAYING";
-        label.style.color = "var(--neon-green)";
-        label.style.textShadow = "var(--glow-green)";
     } else {
-        btn.innerHTML = "&#9654;"; // play triangle
+        btn.innerHTML = PLAY_ICON;
+        btn.setAttribute("aria-label", "Play");
         btn.classList.remove("active");
-        label.textContent = "PAUSED";
-        label.style.color = "var(--text-dim)";
-        label.style.textShadow = "none";
     }
+    document.body.classList.toggle("is-playing", isPlaying);
+    updateProgressUI();
 }
 
 async function skipNext() {
@@ -208,8 +196,61 @@ function updateVolumeUI(vol) {
     const label = document.getElementById("volumeValue");
     slider.value = vol;
     label.textContent = Math.round(vol) + "%";
-    currentVolume = vol;
 }
+
+/* ── Progress (dummy — the server does not report playback position yet) ── */
+let dummyPosition = 0;
+let dummyTotal = 0;
+let lastTrackId = null;
+
+function formatTime(seconds) {
+    if (typeof seconds !== "number" || !isFinite(seconds) || seconds < 0) {
+        return "–:––";
+    }
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+function updateProgressUI() {
+    const fill = document.getElementById("progressFill");
+    if (!fill) return;
+    fill.style.width =
+        dummyTotal > 0
+            ? `${Math.min(100, (dummyPosition / dummyTotal) * 100)}%`
+            : "0%";
+    const elapsed = document.getElementById("elapsedTime");
+    const total = document.getElementById("totalTime");
+    if (elapsed) elapsed.textContent = formatTime(dummyPosition);
+    if (total) total.textContent = formatTime(dummyTotal);
+}
+
+function updateCoverUrl(track) {
+    console.log("hello", track, Object.hasOwn(track, "cover_180"));
+    const cover_art_elem = document.getElementById("cover-art");   
+    if (Object.hasOwn(track, "cover_180")) {
+        console.log("hello2", cover_art_elem);
+        cover_art_elem.innerHTML = `<img src="${track.cover_180}" alt="cover art"/>`;
+    } else {
+        cover_art_elem.innerHTML = `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="coverGradient" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0" stop-color="#232323" />
+                            <stop offset="1" stop-color="#0f0f0f" />
+                        </linearGradient>
+                    </defs>
+                    <rect width="100" height="100" fill="url(#coverGradient)" />
+                    <path d="M70 22v38a11 11 0 1 1-4-8.6V31l-24 6v32a11 11 0 1 1-4-8.6V27z" fill="#1ed760" opacity="0.85" />
+                </svg>`;
+    }
+}
+
+intervalTask = setInterval(() => {
+    if (isPlaying && dummyTotal > 0 && dummyPosition < dummyTotal) {
+        dummyPosition = Math.min(dummyPosition + 1, dummyTotal);
+        updateProgressUI();
+    }
+}, 1000);
 
 /* ── Search ── */
 async function doSearch() {
@@ -221,21 +262,11 @@ async function doSearch() {
         return;
     }
 
-    const btn = document.getElementById("searchBtn");
     const resultsList = document.getElementById("searchResults");
-    btn.disabled = true;
-    btn.textContent = "SEARCH";
     resultsList.innerHTML =
         '<li class="status-msg"><span class="spinner"></span> Searching...</li>';
 
     sendMessage({ t: "search", c: query });
-}
-
-function formatDuration(seconds) {
-    if (!seconds) return "";
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m}:${String(s).padStart(2, "0")} minutes`;
 }
 
 function renderSearchResults(tracks) {
@@ -250,11 +281,11 @@ function renderSearchResults(tracks) {
         const li = document.createElement("li");
         li.className = "result-item";
         li.innerHTML = `
-                <span class="result-name" title="Click to add to playlist" data-id="${escHtml(track.id)}">
+                <span class="result-name" title="Click to add to queue" data-id="${escHtml(track.id)}">
                     ${escHtml(track.title)}
                 </span>
-                <span class="result-meta">${escHtml(track.artist)} ${track.duration ? "· " + formatDuration(track.duration) : ""}</span>
-                <span class="result-added" id="added-${escHtml(track.id)}">&#10003; ADDED</span>
+                <span class="result-meta">${escHtml(track.artist)} ${track.duration ? "· " + formatTime(track.duration) : ""}</span>
+                <span class="result-added" id="added-${escHtml(track.id)}">added</span>
             `;
         li.querySelector(".result-name").addEventListener(
             "click",
@@ -265,6 +296,7 @@ function renderSearchResults(tracks) {
 }
 
 async function addToQueue(track) {
+    if (!Array.isArray(queueState.meta)) queueState.meta = [];
     queueState.meta.push(track);
     const items = queueState.meta.map((v) => v.id);
 
@@ -283,77 +315,41 @@ async function addToQueue(track) {
     showToast(`Adding "${track.title}"...`, "success");
 }
 
-async function playNext(idx) {
-    const items = queueState.meta.map((v) => v.id);
+let currentTitle = "not playing";
 
-    sendMessage({
-        t: "queue",
-        c: {
-            t: "set",
-            c: { meta: items, currently_playing_position: idx },
-        },
-    });
-    // sendMessage({ t: "player", c: { t: "set", c: { command: "next", volume: playerState.volume || 1.0 } } });
-}
+/* ── Marquee for long titles ── */
+function setupMarquee(el, text) {
+    if (!el) return;
+    el.classList.remove("marquee");
+    el.textContent = text;
+    if (el.scrollWidth <= el.clientWidth) return;
 
-/* ── Playlists ── */
-async function loadPlaylists() {
-    // Request playlists via WebSocket
-    sendMessage({ t: "playlists" });
-}
+    el.innerHTML =
+        `<span class="marquee-inner"><span>${escHtml(text)}</span>` +
+        `<span aria-hidden="true">${escHtml(text)}</span></span>`;
+    el.classList.add("marquee");
 
-function renderPlaylists(data) {
-    const list = document.getElementById("playlistsList");
-    // Normalise: accept array of playlists or object with playlists key
-    const playlists = Array.isArray(data)
-        ? data
-        : data.playlists || [];
-
-    if (!playlists.length) {
-        list.innerHTML =
-            '<li class="status-msg">No playlists found.</li>';
-        return;
+    const inner = el.querySelector(".marquee-inner");
+    if (inner) {
+        const gap = 40;
+        const duration = Math.max(8, (el.scrollWidth / 2 + gap) / 35);
+        inner.style.animationDuration = `${duration}s`;
     }
-
-    list.innerHTML = "";
-    playlists.forEach((pl, idx) => {
-        const name = pl.name || pl.title || `Playlist ${idx + 1}`;
-        const tracks = pl.tracks || pl.songs || [];
-
-        const li = document.createElement("li");
-        li.className = "playlist-item";
-
-        const tracksHtml = tracks.length
-            ? tracks
-                .map((t) => {
-                    const label =
-                        typeof t === "string"
-                            ? t
-                            : t.title ||
-                            t.name ||
-                            JSON.stringify(t);
-                    return `<div class="playlist-track">${escHtml(label)}</div>`;
-                })
-                .join("")
-            : '<div class="playlist-track" style="color:var(--text-dim); font-style:italic;">empty playlist</div>';
-
-        li.innerHTML = `
-                <div class="playlist-header" onclick="togglePlaylist(this.parentElement)">
-                    <span class="playlist-name">${escHtml(name)}</span>
-                    <span class="playlist-count">${tracks.length} track${tracks.length !== 1 ? "s" : ""}</span>
-                    <span class="playlist-chevron">&#9654;</span>
-                </div>
-                <div class="playlist-tracks">${tracksHtml}</div>
-            `;
-        list.appendChild(li);
-    });
 }
 
 function renderNowPlaying(track) {
-    document.getElementById("playerTitle").textContent =
-        track.title || "Unknown";
+    currentTitle = track.title || "Unknown";
+    setupMarquee(document.getElementById("playerTitle"), currentTitle);
     document.getElementById("playerArtist").textContent =
         track.artist || "";
+    if (track.id !== lastTrackId) {
+        lastTrackId = track.id;
+        dummyPosition = 0;
+    }
+    const duration = Number(track.duration);
+    dummyTotal = isFinite(duration) && duration > 0 ? duration : 210;
+    updateProgressUI();
+    updateCoverUrl(track);
 }
 
 function renderQueue(queue) {
@@ -369,28 +365,26 @@ function renderQueue(queue) {
             const label = label_.length > 100 ? label_.substring(0, 97) + "..." : label_;
 
             return `<div class="queue-track ${isPlaying ? "playing" : ""}" draggable="true" data-idx="${idx}" data-id="${escHtml(t.id)}">
-                        <span class="drag-handle">&#9776;</span>
-                        <span>${escHtml(label)}</span>
-                        ${isDownloading ? '<span class="spinner"></span>' : ""}
+                        <span class="drag-handle">&#8942;</span>
+                        <span class="eq"><i></i><i></i><i></i></span>
+                        <span class="queue-label">${escHtml(label)}</span>
+                        ${isDownloading ? '<span class="spinner spinner-sm"></span>' : ""}
                     </div>`;
         })
         .join("") : `<p class="status-msg">Queue is empty.</p>`;
 
     panel.innerHTML = `
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <h2 class="panel-title" style="color: var(--neon-yellow); text-shadow: var(--glow-yellow);">
-                        &#9889; Queue (${tracks.length})
-                    </h2>
-                    <button class="btn btn-pink" onclick="clearQueue()"
-                        style="font-size: 0.55rem; padding: 0.3rem 0.6rem;">
-                        &#128465; CLEAR
-                    </button>
+                <div class="queue-header">
+                    <h2 class="panel-title">Queue${tracks.length ? ` (${tracks.length})` : ""}</h2>
+                    <button class="btn btn-sm" id="queueClearBtn">Clear</button>
                 </div>
-                <div id="queueTracks" style="display: flex; flex-direction: column; gap: 0.4rem; flex: 1; overflow-y: auto; max-height: 300px;">
+                <div id="queueTracks" class="queue-tracks">
                     ${tracksHtml}
                 </div>
             `;
 
+    const clearBtn = document.getElementById("queueClearBtn");
+    if (clearBtn) clearBtn.addEventListener("click", clearQueue);
     setupQueueDragDrop();
 }
 
@@ -493,6 +487,29 @@ document
         if (e.key === "Enter") doSearch();
     });
 
+/* Keep the search box focused while clicking a result so the overlay stays visible */
+document
+    .getElementById("searchResults")
+    .addEventListener("mousedown", (e) => e.preventDefault());
+
+/* ── Control wiring ── */
+document
+    .getElementById("playPauseBtn")
+    .addEventListener("click", togglePlayPause);
+document
+    .getElementById("skipBtn")
+    .addEventListener("click", skipNext);
+document
+    .getElementById("stopBtn")
+    .addEventListener("click", stopPlayback);
+document
+    .getElementById("queueClearBtn")
+    .addEventListener("click", clearQueue);
+
+const volumeSlider = document.getElementById("volumeSlider");
+volumeSlider.addEventListener("input", (e) => onVolumeChange(e.target.value));
+volumeSlider.addEventListener("change", (e) => onVolumeCommit(e.target.value));
+
 /* ── Global keyboard & media session handlers ── */
 document.addEventListener("keydown", (e) => {
     // Don't intercept when typing in search
@@ -544,6 +561,14 @@ if ("mediaSession" in navigator) {
     });
 }
 
+/* ── Re-evaluate the marquee when the layout width changes ── */
+let marqueeResizeTimer = null;
+window.addEventListener("resize", () => {
+    clearTimeout(marqueeResizeTimer);
+    marqueeResizeTimer = setTimeout(() => {
+        setupMarquee(document.getElementById("playerTitle"), currentTitle);
+    }, 150);
+});
+
 /* ── Init ── */
 connectWebSocket();
-// Initial state loading is now handled by the WebSocket connection

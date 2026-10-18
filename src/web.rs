@@ -1,5 +1,6 @@
 use std::{
     env,
+    fs,
     path::PathBuf,
     sync::Arc,
 };
@@ -29,6 +30,13 @@ impl WebAppState {
             .subsonic
             .caching_strategy
             .cache_dir()
+            .map(|d| {
+                if !d.exists() {
+                    fs::create_dir_all(&d)
+                        .expect("Couldn't create cache directory. Check tmp path in config.")
+                }
+                d
+            })
             .unwrap_or(env::temp_dir())
     }
 }

@@ -20,7 +20,7 @@ axum = { version = "*", features = [
     "tower-log",
     "matched-path"
 ], default-features = false }
-rodio = { version = "0.22.1", features = [
+rodio = { version = "0.23", features = [
     "tracing",
     "playback",
     "symphonia-all",
